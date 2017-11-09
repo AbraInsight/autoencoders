@@ -1,0 +1,4 @@
+__pycache__
+autoencoders_keras/__pycache__
+.*
+!/.gitignore
