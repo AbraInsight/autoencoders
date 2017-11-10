@@ -27,7 +27,8 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
                  encoder_layers=None,
                  decoder_layers=None,
                  n_hidden_units=None,
-                 encoding_dim=None):
+                 encoding_dim=None,
+                 denoising=None):
         args, _, _, values = inspect.getargvalues(inspect.currentframe())
         values.pop("self")
         
@@ -71,7 +72,7 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
     def fit(self,
             X,
             y=None):
-        self.autoencoder.fit(X, X,
+        self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
                              validation_split=0.3,
                              epochs=self.n_epoch,
                              batch_size=self.batch_size,
