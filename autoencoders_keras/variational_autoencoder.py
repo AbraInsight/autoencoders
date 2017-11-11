@@ -15,7 +15,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 import keras
 from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers, Lambda
-from keras.models import Model
+from keras.models import Model, Sequential
 
 from autoencoders_keras.loss_history import LossHistory
 
@@ -57,20 +57,20 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
         self.log_sigma = Dense(self.encoding_dim, activation="linear")(self.encoded)
         z = Lambda(self.sample_z, output_shape=(self.encoding_dim,))([self.mu, self.log_sigma])
 
+        self.decoded_layers_dict = {}
         for i in range(self.decoder_layers):
             if i == 0:
-                self.decoded = Dense(self.n_hidden_units, activation="elu")(z)
-                self.decoded = BatchNormalization()(self.decoded)
-                self.decoded = Dropout(rate=0.5)(self.decoded)
+                self.decoded_layers_dict[i] = Dense(self.n_hidden_units, activation="elu")
+                self.decoded = self.decoded_layers_dict[i](z)
             elif i > 0 and i < self.decoder_layers - 1:
-                self.decoded = Dense(self.n_hidden_units, activation="elu")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
-                self.decoded = Dropout(rate=0.5)(self.decoded)
+                self.decoded_layers_dict[i] = Dense(self.n_hidden_units, activation="elu")
+                self.decoded = self.decoded_layers_dict[i](self.decoded)
             elif i == self.decoder_layers - 1:
-                self.decoded = Dense(self.n_hidden_units, activation="elu")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded_layers_dict[i] = Dense(self.n_hidden_units, activation="elu")
+                self.decoded = self.decoded_layers_dict[i](self.decoded)
         
-        self.decoded = Dense(self.n_feat, activation="sigmoid")(self.decoded)
+        self.decoded_layers_dict[self.decoder_layers] = Dense(self.n_feat, activation="sigmoid")
+        self.decoded = self.decoded_layers_dict[self.decoder_layers](self.decoded)
         
         self.autoencoder = Model(self.input_data, self.decoded)
         self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
@@ -88,6 +88,20 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
         
         self.encoder = Model(self.input_data, self.mu)
         
+        self.generator_input = Input(shape=(self.encoding_dim,))
+        self.generator_output = None
+        for i in range(self.decoder_layers):
+            if i == 0:
+                self.generator_output = self.decoded_layers_dict[i](self.generator_input)
+            elif i > 0 and i < self.decoder_layers - 1:
+                self.generator_output = self.decoded_layers_dict[i](self.generator_output)
+            elif i == self.decoder_layers - 1:
+                self.generator_output = self.decoded_layers_dict[i](self.generator_output)
+        
+        self.generator_output = self.decoded_layers_dict[self.decoder_layers](self.generator_output)
+        
+        self.generator = Model(self.generator_input, self.generator_output)
+                
         return self
     
     def transform(self,
@@ -97,7 +111,7 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
     def sample_z(self,
                  args):
         mu_, log_sigma_ = args
-        eps = keras.backend.random_normal(shape=(self.encoding_dim,),
+        eps = keras.backend.random_normal(shape=(keras.backend.shape(mu_)[0], self.encoding_dim),
                                           mean=0.0,
                                           stddev=1.0)
         return mu_ + keras.backend.exp(log_sigma_ / 2) * eps
@@ -105,6 +119,6 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
     def vae_loss(self,
                  y_true,
                  y_pred):
-        recon = keras.losses.mean_squared_error(y_true, y_pred)
-        kl = 0.5 * keras.backend.sum(keras.backend.exp(self.log_sigma) + keras.backend.square(self.mu) - 1.0 - self.log_sigma, axis=1)
+        recon = self.n_feat * keras.metrics.mean_squared_error(y_true=y_true, y_pred=y_pred)
+        kl = -0.5 * keras.backend.mean(1.0 + self.log_sigma - keras.backend.exp(self.log_sigma) - keras.backend.square(self.mu), axis=-1)
         return recon + kl
