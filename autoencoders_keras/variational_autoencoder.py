@@ -69,6 +69,7 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
                 self.decoded_layers_dict[i] = Dense(self.n_hidden_units, activation="elu")
                 self.decoded = self.decoded_layers_dict[i](self.decoded)
         
+        # Output would have shape: (batch_size, n_feat).
         self.decoded_layers_dict[self.decoder_layers] = Dense(self.n_feat, activation="sigmoid")
         self.decoded = self.decoded_layers_dict[self.decoder_layers](self.decoded)
         

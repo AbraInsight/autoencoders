@@ -79,7 +79,10 @@ class ConvolutionalAutoencoder(BaseEstimator, TransformerMixin):
                 self.decoded = BatchNormalization()(self.decoded)
                 self.decoded = Dropout(rate=0.5)(self.decoded)
         
-        self.decoded = convolutional.Conv1D(filters=input_shape[1], kernel_size=self.kernel_size, strides=self.strides, activation="sigmoid", padding="same")(self.decoded)
+        # 3D tensor with shape: (batch_size, new_steps, filters).
+        # Remember think of this as a 2D-Lattice per observation.
+        # Rows represent time and columns represent some quantities of interest that evolve over time.
+        self.decoded = convolutional.Conv1D(filters=self.input_shape[1], kernel_size=self.kernel_size, strides=self.strides, activation="sigmoid", padding="same")(self.decoded)
         
         self.autoencoder = Model(self.input_data, self.decoded)
         self.autoencoder.compile(optimizer=keras.optimizers.Adam(),

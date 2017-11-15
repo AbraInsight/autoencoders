@@ -28,6 +28,8 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
                  decoder_layers=None,
                  n_hidden_units=None,
                  encoding_dim=None,
+                 stateful=None,
+                 unroll=None,
                  denoising=None):
         args, _, _, values = inspect.getargvalues(inspect.currentframe())
         values.pop("self")
@@ -37,34 +39,44 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
         
         loss_history = LossHistory()
         self.callbacks_list = [loss_history]
-
-        self.input_data = Input(shape=self.input_shape)
         
         # 2D-lattice with time on the x-axis (across rows) and with space on the y-axis (across columns).
-        self.n_rows = self.input_shape[0]
-        self.n_cols = self.input_shape[1]
+        if self.stateful is True:
+            self.input_data = Input(batch_shape=self.input_shape)
+            self.n_rows = self.input_shape[1]
+            self.n_cols = self.input_shape[2]
+        else:
+            self.input_data = Input(shape=self.input_shape)
+            self.n_rows = self.input_shape[0]
+            self.n_cols = self.input_shape[1]
 
         for i in range(self.encoder_layers):
             if i == 0:
                 # Returns n_rows sequences of vectors of dimension encoding_dim.
-                self.encoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True)(self.input_data)
+                self.encoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.input_data)
                 self.encoded = BatchNormalization()(self.encoded)
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             else:
-                self.encoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True)(self.encoded)
+                self.encoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.encoded)
                 self.encoded = BatchNormalization()(self.encoded)
                 self.encoded = Dropout(rate=0.5)(self.encoded)
 
         # Returns 1 vector of dimension encoding_dim.
-        self.encoded = LSTM(units=self.encoding_dim, activation="sigmoid", return_sequences=False)(self.encoded)
+        self.encoded = LSTM(units=self.encoding_dim, activation="sigmoid", return_sequences=False, stateful=self.stateful, unroll=self.unroll)(self.encoded)
         self.decoded = RepeatVector(self.n_rows)(BatchNormalization()(self.encoded))
 
         for i in range(self.decoder_layers):
-            self.decoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True)(self.decoded)
+            self.decoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.decoded)
             self.decoded = BatchNormalization()(self.decoded)
             self.decoded = Dropout(rate=0.5)(self.decoded)
         
-        self.decoded = LSTM(units=self.n_cols, activation="sigmoid", return_sequences=True)(self.decoded)
+        # If return_sequences is True: 3D tensor with shape (batch_size, timesteps, units).
+        # Else: 2D tensor with shape (batch_size, units).
+        # If return_state is True: a list of tensors. 
+        # The first tensor is the output. The remaining tensors are the last states, each with shape (batch_size, units).
+        # If stateful is True: the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
+        # If unroll is True: the network will be unrolled, else a symbolic loop will be used. Unrolling can speed-up a RNN, although it tends to be more memory-intensive. Unrolling is only suitable for short sequences.
+        self.decoded = LSTM(units=self.n_cols, activation="sigmoid", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.decoded)
         
         self.autoencoder = Model(self.input_data, self.decoded)
         self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
