@@ -17,6 +17,8 @@ import keras
 from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers, local, convolutional, pooling, Flatten, Reshape
 from keras.models import Model
 
+import tensorflow
+
 from autoencoders_keras.loss_history import LossHistory
 
 class ConvolutionalAutoencoder(BaseEstimator, TransformerMixin):
@@ -45,38 +47,30 @@ class ConvolutionalAutoencoder(BaseEstimator, TransformerMixin):
         
         for i in range(self.encoder_layers):
             if i == 0:
-                self.encoded = convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.input_data)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.input_data))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
-                self.encoded = convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
-                self.encoded = convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
                 self.encoded = pooling.MaxPooling1D(self.pool_size, padding="same")(self.encoded)
 
         self.encoded = local.LocallyConnected1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="valid")(self.encoded)
-        self.encoded = Flatten()(self.encoded)
-        self.encoded = BatchNormalization()(self.encoded)
+        self.encoded = BatchNormalization()(Flatten()(self.encoded))
         self.encoded = Dense(self.encoding_dim, activation="sigmoid")(self.encoded)
-        self.decoded = Dense(int(input_shape[1] / self.pool_size) * self.encoding_dim, activation="elu")(BatchNormalization()(self.encoded))
-        self.decoded = BatchNormalization()(self.decoded)
+        self.decoded = BatchNormalization()(Dense(int(input_shape[1] / self.pool_size) * self.encoding_dim, activation="elu")(self.encoded))
 
         for i in range(self.decoder_layers):
             if i == 0:
-                self.decoded = convolutional.UpSampling1D(self.pool_size)(Reshape((int(input_shape[1] / self.pool_size), self.encoding_dim))(self.decoded))
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(convolutional.UpSampling1D(self.pool_size)(Reshape((int(input_shape[1] / self.pool_size), self.encoding_dim))(self.decoded)))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i > 0 and i < self.decoder_layers - 1:
-                self.decoded = convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i == self.decoder_layers - 1:
-                self.decoded = convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(convolutional.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
         
         # 3D tensor with shape: (batch_size, new_steps, filters).
@@ -90,6 +84,7 @@ class ConvolutionalAutoencoder(BaseEstimator, TransformerMixin):
     def fit(self,
             X,
             y=None):
+        keras.backend.get_session().run(tensorflow.global_variables_initializer())
         self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
                              validation_split=0.3,
                              epochs=self.n_epoch,

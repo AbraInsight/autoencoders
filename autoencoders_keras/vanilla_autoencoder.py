@@ -17,6 +17,8 @@ import keras
 from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers
 from keras.models import Model
 
+import tensorflow
+
 from autoencoders_keras.loss_history import LossHistory
 
 class VanillaAutoencoder(BaseEstimator, TransformerMixin):
@@ -42,31 +44,25 @@ class VanillaAutoencoder(BaseEstimator, TransformerMixin):
         
         for i in range(self.encoder_layers):
             if i == 0:
-                self.encoded = Dense(self.n_hidden_units, activation="elu")(self.input_data)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.input_data))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
-                self.encoded = Dense(self.n_hidden_units, activation="elu")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
-                self.encoded = Dense(self.n_hidden_units, activation="elu")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
         
         self.encoded = Dense(self.encoding_dim, activation="sigmoid", activity_regularizer=regularizers.l1(1e-4))(self.encoded)
 
         for i in range(self.decoder_layers):
             if i == 0:
-                self.decoded = Dense(self.n_hidden_units, activation="elu")(BatchNormalization()(self.encoded))
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i > 0 and i < self.decoder_layers - 1:
-                self.decoded = Dense(self.n_hidden_units, activation="elu")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.decoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i == self.decoder_layers - 1:
-                self.decoded = Dense(self.n_hidden_units, activation="elu")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.decoded))
         
         # Output would have shape: (batch_size, n_feat).
         self.decoded = Dense(self.n_feat, activation="sigmoid")(self.decoded)
@@ -77,6 +73,7 @@ class VanillaAutoencoder(BaseEstimator, TransformerMixin):
     def fit(self,
             X,
             y=None):
+        keras.backend.get_session().run(tensorflow.global_variables_initializer())
         self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
                              validation_split=0.3,
                              epochs=self.n_epoch,

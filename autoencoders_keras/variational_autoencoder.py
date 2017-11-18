@@ -17,6 +17,8 @@ import keras
 from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers, Lambda
 from keras.models import Model, Sequential
 
+import tensorflow
+
 from autoencoders_keras.loss_history import LossHistory
 
 class VariationalAutoencoder(BaseEstimator, TransformerMixin):
@@ -42,16 +44,13 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
         
         for i in range(self.encoder_layers):
             if i == 0:
-                self.encoded = Dense(self.n_hidden_units, activation="elu")(self.input_data)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.input_data))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
-                self.encoded = Dense(self.n_hidden_units, activation="elu")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
-                self.encoded = Dense(self.n_hidden_units, activation="elu")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
         
         self.mu = Dense(self.encoding_dim, activation="linear")(self.encoded)
         self.log_sigma = Dense(self.encoding_dim, activation="linear")(self.encoded)
@@ -79,6 +78,7 @@ class VariationalAutoencoder(BaseEstimator, TransformerMixin):
     def fit(self,
             X,
             y=None):
+        keras.backend.get_session().run(tensorflow.global_variables_initializer())
         self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
                              validation_split=0.3,
                              epochs=self.n_epoch,

@@ -14,8 +14,10 @@ import inspect
 from sklearn.base import BaseEstimator, TransformerMixin
 
 import keras
-from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers, local, convolutional, pooling, Flatten, Reshape, LSTM, RepeatVector
+from keras.layers import Input, Activation, Dense, BatchNormalization, Dropout, regularizers, local, convolutional, pooling, Flatten, Reshape, CuDNNLSTM, RepeatVector
 from keras.models import Model
+
+import tensorflow
 
 from autoencoders_keras.loss_history import LossHistory
 
@@ -29,7 +31,6 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
                  n_hidden_units=None,
                  encoding_dim=None,
                  stateful=None,
-                 unroll=None,
                  denoising=None):
         args, _, _, values = inspect.getargvalues(inspect.currentframe())
         values.pop("self")
@@ -53,21 +54,25 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
         for i in range(self.encoder_layers):
             if i == 0:
                 # Returns n_rows sequences of vectors of dimension encoding_dim.
-                self.encoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.input_data)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.input_data)
+                self.encoded = BatchNormalization()(Activation("elu")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             else:
-                self.encoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.encoded)
+                self.encoded = BatchNormalization()(Activation("elu")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
 
         # Returns 1 vector of dimension encoding_dim.
-        self.encoded = LSTM(units=self.encoding_dim, activation="sigmoid", return_sequences=False, stateful=self.stateful, unroll=self.unroll)(self.encoded)
-        self.decoded = RepeatVector(self.n_rows)(BatchNormalization()(self.encoded))
+        self.encoded = CuDNNLSTM(units=self.encoding_dim, return_sequences=False, stateful=self.stateful)(self.encoded)
+        self.encoded = Activation("sigmoid")(self.encoded)
+
+        # Reurns a sequence containing n_rows vectors where each vector is of dimension encoding_dim.
+        # output_shape: (None, n_rows, encoding_dim).
+        self.decoded = RepeatVector(self.n_rows)(self.encoded)
 
         for i in range(self.decoder_layers):
-            self.decoded = LSTM(units=self.n_hidden_units, activation="elu", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.decoded)
-            self.decoded = BatchNormalization()(self.decoded)
+            self.decoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.decoded)
+            self.decoded = BatchNormalization()(Activation("elu")(self.decoded))
             self.decoded = Dropout(rate=0.5)(self.decoded)
         
         # If return_sequences is True: 3D tensor with shape (batch_size, timesteps, units).
@@ -75,8 +80,9 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
         # If return_state is True: a list of tensors. 
         # The first tensor is the output. The remaining tensors are the last states, each with shape (batch_size, units).
         # If stateful is True: the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
-        # If unroll is True: the network will be unrolled, else a symbolic loop will be used. Unrolling can speed-up a RNN, although it tends to be more memory-intensive. Unrolling is only suitable for short sequences.
-        self.decoded = LSTM(units=self.n_cols, activation="sigmoid", return_sequences=True, stateful=self.stateful, unroll=self.unroll)(self.decoded)
+        # For LSTM (not CuDNNLSTM) If unroll is True: the network will be unrolled, else a symbolic loop will be used. Unrolling can speed-up a RNN, although it tends to be more memory-intensive. Unrolling is only suitable for short sequences.
+        self.decoded = CuDNNLSTM(units=self.n_cols, return_sequences=True, stateful=self.stateful)(self.decoded)
+        self.decoded = Activation("sigmoid")(self.decoded)
         
         self.autoencoder = Model(self.input_data, self.decoded)
         self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
@@ -84,6 +90,7 @@ class Seq2SeqAutoencoder(BaseEstimator, TransformerMixin):
     def fit(self,
             X,
             y=None):
+        keras.backend.get_session().run(tensorflow.global_variables_initializer())
         self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
                              validation_split=0.3,
                              epochs=self.n_epoch,

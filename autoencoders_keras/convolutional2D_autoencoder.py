@@ -11,11 +11,15 @@
 import math
 import inspect
 
+import numpy as np
+
 from sklearn.base import BaseEstimator, TransformerMixin
 
 import keras
 from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers, local, convolutional, pooling, Flatten, Reshape
 from keras.models import Model
+
+import tensorflow
 
 from autoencoders_keras.loss_history import LossHistory
 
@@ -45,33 +49,27 @@ class Convolutional2DAutoencoder(BaseEstimator, TransformerMixin):
         
         for i in range(self.encoder_layers):
             if i == 0:
-                self.encoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.input_data)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.input_data))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
-                self.encoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
-                self.encoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = BatchNormalization()(convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded))
                 self.encoded = Dropout(rate=0.5)(self.encoded)
 
         self.encoded = pooling.MaxPooling2D(self.pool_size, padding="same")(self.encoded)
 
         for i in range(self.decoder_layers):
             if i == 0:
-                self.decoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(BatchNormalization()(self.encoded))
-                self.decoded = convolutional.UpSampling2D(self.pool_size)(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
+                self.decoded = BatchNormalization()(convolutional.UpSampling2D(self.pool_size)(self.decoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i > 0 and i < self.decoder_layers - 1:
-                self.decoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i == self.decoder_layers - 1:
-                self.decoded = convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = BatchNormalization()(convolutional.Conv2D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded))
                 self.decoded = Dropout(rate=0.5)(self.decoded)
         
         # 4D tensor with shape: (samples, new_rows, new_cols, filters).
@@ -86,6 +84,7 @@ class Convolutional2DAutoencoder(BaseEstimator, TransformerMixin):
     def fit(self,
             X,
             y=None):
+        keras.backend.get_session().run(tensorflow.global_variables_initializer())
         self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
                              validation_split=0.3,
                              epochs=self.n_epoch,
@@ -100,4 +99,5 @@ class Convolutional2DAutoencoder(BaseEstimator, TransformerMixin):
     
     def transform(self,
                   X):
-        return self.encoder.predict(X)
+        out = self.encoder.predict(X)
+        return np.reshape(out, [out.shape[0], out.shape[1] * out.shape[2] * out.shape[3]])
