@@ -76,7 +76,7 @@ class Convolutional2DAutoencoder(BaseEstimator, TransformerMixin):
         # Remember think of this as a 2D-Lattice across potentially multiple channels per observation.
         # Rows represent time and columns represent some quantities of interest that evolve over time.
         # Channels might represent different sources of information.
-        self.decoded = convolutional.Conv2D(filters=1, kernel_size=self.kernel_size, strides=self.strides, activation="sigmoid", padding="same")(self.decoded)
+        self.decoded = convolutional.Conv2D(filters=self.input_shape[2], kernel_size=self.kernel_size, strides=self.strides, activation="sigmoid", padding="same")(self.decoded)
         
         self.autoencoder = Model(self.input_data, self.decoded)
         self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
