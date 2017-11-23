@@ -1,12 +1,4 @@
 # Author: Hamaad Musharaf Shah.
-# The following references were used.
-# https://keras.io
-# https://blog.keras.io/building-autoencoders-in-keras.html
-# https://stackoverflow.com/questions/42177658/how-to-switch-backend-with-keras-from-tensorflow-to-theano
-# https://towardsdatascience.com/learning-rate-schedules-and-adaptive-learning-rate-methods-for-deep-learning-2c8f433990d1
-# http://scikit-learn.org/stable/
-# Book: Ian Goodfellow, Yoshua Bengio and Aaron Courville, "Deep Learning" - http://www.deeplearningbook.org
-# Book: Aurelien Geron, "Hands-On Machine Learning with Scikit-Learn & Tensorflow" - https://www.amazon.co.uk/Hands-Machine-Learning-Scikit-Learn-TensorFlow/dp/1491962291
 
 import math
 import inspect
@@ -14,14 +6,15 @@ import inspect
 from sklearn.base import BaseEstimator, TransformerMixin
 
 import keras
-from keras.layers import Input, Dense, BatchNormalization, Dropout, regularizers
+from keras.layers import Input, Dense, BatchNormalization, Dropout
 from keras.models import Model
 
 import tensorflow
 
 from autoencoders_keras.loss_history import LossHistory
 
-class VanillaAutoencoder(BaseEstimator, TransformerMixin):
+class VanillaAutoencoder(BaseEstimator, 
+                         TransformerMixin):
     def __init__(self, 
                  n_feat=None,
                  n_epoch=None,
@@ -39,53 +32,73 @@ class VanillaAutoencoder(BaseEstimator, TransformerMixin):
         
         loss_history = LossHistory()
         self.callbacks_list = [loss_history]
-
-        self.input_data = Input(shape=(self.n_feat,))
         
         for i in range(self.encoder_layers):
             if i == 0:
-                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.input_data))
-                self.encoded = Dropout(rate=0.5)(self.encoded)
+                with tensorflow.device("/gpu:0"):
+                    self.input_data = Input(shape=(self.n_feat,))
+                    self.encoded = BatchNormalization()(self.input_data)
+                    self.encoded = Dense(units=self.n_hidden_units, activation="elu")(self.encoded)
+                    self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
-                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
-                self.encoded = Dropout(rate=0.5)(self.encoded)
+                with tensorflow.device("/gpu:0"):
+                    self.encoded = BatchNormalization()(self.encoded)
+                    self.encoded = Dense(units=self.n_hidden_units, activation="elu")(self.encoded)
+                    self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
-                self.encoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
+                with tensorflow.device("/gpu:0"):
+                    self.encoded = BatchNormalization()(self.encoded)
+                    self.encoded = Dense(units=self.n_hidden_units, activation="elu")(self.encoded)
         
-        self.encoded = Dense(self.encoding_dim, activation="sigmoid", activity_regularizer=regularizers.l1(1e-4))(self.encoded)
+        with tensorflow.device("/gpu:0"):
+            self.encoded = BatchNormalization()(self.encoded)
+            self.encoded = Dense(units=self.encoding_dim, activation="sigmoid")(self.encoded)
 
         for i in range(self.decoder_layers):
             if i == 0:
-                self.decoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.encoded))
-                self.decoded = Dropout(rate=0.5)(self.decoded)
+                with tensorflow.device("/gpu:0"):
+                    self.decoded = BatchNormalization()(self.encoded)
+                    self.decoded = Dense(units=self.n_hidden_units, activation="elu")(self.decoded)
+                    self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i > 0 and i < self.decoder_layers - 1:
-                self.decoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.decoded))
-                self.decoded = Dropout(rate=0.5)(self.decoded)
+                with tensorflow.device("/gpu:0"):
+                    self.decoded = BatchNormalization()(self.decoded)
+                    self.decoded = Dense(units=self.n_hidden_units, activation="elu")(self.decoded)
+                    self.decoded = Dropout(rate=0.5)(self.decoded)
             elif i == self.decoder_layers - 1:
-                self.decoded = BatchNormalization()(Dense(self.n_hidden_units, activation="elu")(self.decoded))
+                with tensorflow.device("/gpu:0"):
+                    self.decoded = BatchNormalization()(self.decoded)
+                    self.decoded = Dense(units=self.n_hidden_units, activation="elu")(self.decoded)
         
-        # Output would have shape: (batch_size, n_feat).
-        self.decoded = Dense(self.n_feat, activation="sigmoid")(self.decoded)
+        with tensorflow.device("/gpu:0"):
+            # Output would have shape: (batch_size, n_feat).
+            self.decoded = BatchNormalization()(self.decoded)
+            self.decoded = Dense(units=self.n_feat, activation="sigmoid")(self.decoded)
         
-        self.autoencoder = Model(self.input_data, self.decoded)
-        self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
-                                 loss="mean_squared_error")
+            self.autoencoder = Model(self.input_data, self.decoded)
+            self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
+                                     loss="mean_squared_error")
+           
     def fit(self,
             X,
             y=None):
-        keras.backend.get_session().run(tensorflow.global_variables_initializer())
-        self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
-                             validation_split=0.3,
-                             epochs=self.n_epoch,
-                             batch_size=self.batch_size,
-                             shuffle=True,
-                             callbacks=self.callbacks_list, 
-                             verbose=2)
-        
-        self.encoder = Model(self.input_data, self.encoded)
+        with tensorflow.device("/gpu:0"):
+            keras.backend.get_session().run(tensorflow.global_variables_initializer())
+            self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
+                                 validation_split=0.3,
+                                 epochs=self.n_epoch,
+                                 batch_size=self.batch_size,
+                                 shuffle=True,
+                                 callbacks=self.callbacks_list, 
+                                 verbose=1)
+
+            self.encoder = Model(self.input_data, self.encoded)
         
         return self
     
     def transform(self,
                   X):
-        return self.encoder.predict(X)                 
+        with tensorflow.device("/gpu:0"):
+            out = self.encoder.predict(X)
+            
+        return out
