@@ -6,7 +6,7 @@ import inspect
 from sklearn.base import BaseEstimator, TransformerMixin
 
 import keras
-from keras.layers import Input, Activation, Dense, Dropout, CuDNNLSTM, RepeatVector
+from keras.layers import Input, Activation, Dense, Dropout, CuDNNLSTM, RepeatVector, TimeDistributed
 from keras.models import Model
 
 import tensorflow
@@ -50,13 +50,17 @@ class Seq2SeqAutoencoder(BaseEstimator,
                 with tensorflow.device("/gpu:0"):
                     # Returns n_rows sequences of vectors of dimension encoding_dim.
                     self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.input_data)
-                    self.encoded = Activation("elu")(self.encoded)
+                    self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
                     self.encoded = Dropout(rate=0.5)(self.encoded)
-            else:
+            elif i > 0 and i < self.encoder_layers - 1:
                 with tensorflow.device("/gpu:0"):
                     self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.encoded)
-                    self.encoded = Activation("elu")(self.encoded)
+                    self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
                     self.encoded = Dropout(rate=0.5)(self.encoded)
+            elif i == self.encoder_layers - 1:
+                with tensorflow.device("/gpu:0"):
+                    self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.encoded)
+                    self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
 
         with tensorflow.device("/gpu:0"):
             # Returns 1 vector of dimension encoding_dim.
@@ -68,10 +72,15 @@ class Seq2SeqAutoencoder(BaseEstimator,
             self.decoded = RepeatVector(self.n_rows)(self.encoded)
 
         for i in range(self.decoder_layers):
-            with tensorflow.device("/gpu:0"):
-                self.decoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.decoded)
-                self.decoded = Activation("elu")(self.decoded)
-                self.decoded = Dropout(rate=0.5)(self.decoded)
+            if i < self.encoder_layers - 1:
+                with tensorflow.device("/gpu:0"):
+                    self.decoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.decoded)
+                    self.decoded = TimeDistributed(Activation("elu"))(self.decoded)
+                    self.decoded = Dropout(rate=0.5)(self.decoded)
+            elif i == self.decoder_layers - 1:
+                with tensorflow.device("/gpu:0"):
+                    self.decoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.decoded)
+                    self.decoded = TimeDistributed(Activation("elu"))(self.decoded)
         
         with tensorflow.device("/gpu:0"):
             # If return_sequences is True: 3D tensor with shape (batch_size, timesteps, units).
@@ -81,7 +90,6 @@ class Seq2SeqAutoencoder(BaseEstimator,
             # If stateful is True: the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
             # For LSTM (not CuDNNLSTM) If unroll is True: the network will be unrolled, else a symbolic loop will be used. Unrolling can speed-up a RNN, although it tends to be more memory-intensive. Unrolling is only suitable for short sequences.
             self.decoded = CuDNNLSTM(units=self.n_cols, return_sequences=True, stateful=self.stateful)(self.decoded)
-            self.decoded = Activation("sigmoid")(self.decoded)
 
             self.autoencoder = Model(self.input_data, self.decoded)
             self.autoencoder.compile(optimizer=keras.optimizers.Adam(),

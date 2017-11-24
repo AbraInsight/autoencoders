@@ -6,7 +6,7 @@ import inspect
 from sklearn.base import BaseEstimator, TransformerMixin
 
 import keras
-from keras.layers import Input, Dense, BatchNormalization, Dropout, Lambda
+from keras.layers import Input, Dense, BatchNormalization, Dropout, Lambda, add
 from keras.models import Model, Sequential
 
 import tensorflow
@@ -56,22 +56,48 @@ class VariationalAutoencoder(BaseEstimator,
             z = Lambda(self.sample_z, output_shape=(self.encoding_dim,))([self.mu, self.log_sigma])
 
         self.decoded_layers_dict = {}
+        
+        decoder_counter = 0
+        
         for i in range(self.decoder_layers):
             with tensorflow.device("/gpu:0"):
                 if i == 0:
-                    self.decoded_layers_dict[i] = Dense(units=self.n_hidden_units, activation="elu")
-                    self.decoded = self.decoded_layers_dict[i](z)
+                    self.decoded_layers_dict[decoder_counter] = Dense(units=self.n_hidden_units, activation="elu")
+                    decoder_counter += 1
+                    self.decoded_layers_dict[decoder_counter] = BatchNormalization()
+                    decoder_counter += 1
+                    self.decoded_layers_dict[decoder_counter] = Dropout(rate=0.5)
+
+                    self.decoded = self.decoded_layers_dict[decoder_counter - 2](z)
+                    self.decoded = self.decoded_layers_dict[decoder_counter - 1](self.decoded)
+                    self.decoded = self.decoded_layers_dict[decoder_counter](self.decoded)
+
+                    decoder_counter += 1
                 elif i > 0 and i < self.decoder_layers - 1:
-                    self.decoded_layers_dict[i] = Dense(units=self.n_hidden_units, activation="elu")
-                    self.decoded = self.decoded_layers_dict[i](self.decoded)
+                    self.decoded_layers_dict[decoder_counter] = Dense(units=self.n_hidden_units, activation="elu")
+                    decoder_counter += 1
+                    self.decoded_layers_dict[decoder_counter] = BatchNormalization()
+                    decoder_counter += 1
+                    self.decoded_layers_dict[decoder_counter] = Dropout(rate=0.5)
+
+                    self.decoded = self.decoded_layers_dict[decoder_counter - 2](self.decoded)
+                    self.decoded = self.decoded_layers_dict[decoder_counter - 1](self.decoded)
+                    self.decoded = self.decoded_layers_dict[decoder_counter](self.decoded)
+
+                    decoder_counter += 1
                 elif i == self.decoder_layers - 1:
-                    self.decoded_layers_dict[i] = Dense(units=self.n_hidden_units, activation="elu")
-                    self.decoded = self.decoded_layers_dict[i](self.decoded)
+                    self.decoded_layers_dict[decoder_counter] = Dense(units=self.n_hidden_units, activation="elu")
+                    decoder_counter += 1
+                    self.decoded_layers_dict[decoder_counter] = BatchNormalization()
+
+                    self.decoded = self.decoded_layers_dict[decoder_counter - 1](self.decoded)
+                    self.decoded = self.decoded_layers_dict[decoder_counter](self.decoded)
+                    decoder_counter += 1
         
         with tensorflow.device("/gpu:0"):
             # Output would have shape: (batch_size, n_feat).
-            self.decoded_layers_dict[self.decoder_layers] = Dense(units=self.n_feat, activation="sigmoid")
-            self.decoded = self.decoded_layers_dict[self.decoder_layers](self.decoded)
+            self.decoded_layers_dict[decoder_counter] = Dense(units=self.n_feat, activation="sigmoid")
+            self.decoded = self.decoded_layers_dict[decoder_counter](self.decoded)
         
             self.autoencoder = Model(self.input_data, self.decoded)
             self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
@@ -94,15 +120,30 @@ class VariationalAutoencoder(BaseEstimator,
 
             self.generator_input = Input(shape=(self.encoding_dim,))
             self.generator_output = None
+            decoder_counter = 0
+            
             for i in range(self.decoder_layers):
                 if i == 0:
-                    self.generator_output = self.decoded_layers_dict[i](self.generator_input)
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_input)
+                    decoder_counter += 1
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
                 elif i > 0 and i < self.decoder_layers - 1:
-                    self.generator_output = self.decoded_layers_dict[i](self.generator_output)
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
                 elif i == self.decoder_layers - 1:
-                    self.generator_output = self.decoded_layers_dict[i](self.generator_output)
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
+                    self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
+                    decoder_counter += 1
 
-            self.generator_output = self.decoded_layers_dict[self.decoder_layers](self.generator_output)
+            self.generator_output = self.decoded_layers_dict[decoder_counter](self.generator_output)
 
             self.generator = Model(self.generator_input, self.generator_output)
                 
