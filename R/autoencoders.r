@@ -19,10 +19,14 @@ ins.data.dt <- data.table(ClaimsLong)
 # ...where ideally I would've liked some historical transactions data per policy-period combination...
 # ...so I will try to create a simple dataset myself.
 
+set.seed(seed = 666)
 n.policies <- 1000
 n.time.periods <- 4
+train.prop <- 0.7
+
 claim.risk <- data.table("policy.id" = 1:n.policies,
                          "claim.risk" = rbinom(n = n.policies, size = 1, prob = 0.25))
+write.csv(x = claim.risk, file = "R/data/claim_risk.csv", row.names = FALSE)
 
 transactions.generator <- function(claim.risk) {
   if (claim.risk == 0) {
@@ -40,6 +44,7 @@ transactions <- lapply(X = 1:n.policies,
                        FUN = function(policy.id) cbind(policy.id,
                                                        transactions.generator(claim.risk = claim.risk$claim.risk[policy.id])))
 transactions <- do.call(rbind, transactions)
+write.csv(x = transactions, file = "R/data/transactions.csv", row.names = FALSE)
 
 handcrafted.features <- transactions[, 
                                      list("feat.sum.payments" = sum(payments),
@@ -57,8 +62,9 @@ handcrafted.features <- transactions[,
                                           "feat.max.premium" = max(premium),
                                           "feat.var.premium" = var(premium)), 
                                      by = "policy.id"][, policy.id := NULL]
+write.csv(x = handcrafted.features, file = "R/data/handcrafted_features.csv", row.names = FALSE)
 
-tr.ind <- sample(x = 1:n.policies, size = floor(0.7 * n.policies), replace = FALSE)
+tr.ind <- sample(x = 1:n.policies, size = floor(train.prop * n.policies), replace = FALSE)
 ts.ind <- setdiff(x = 1:n.policies, y = tr.ind)
 
 mu <- apply(X = handcrafted.features[tr.ind], MARGIN = 2, FUN = mean)
