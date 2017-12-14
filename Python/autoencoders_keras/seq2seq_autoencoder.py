@@ -101,7 +101,7 @@ class Seq2SeqAutoencoder(BaseEstimator,
         with tensorflow.device("/gpu:0"):
             keras.backend.get_session().run(tensorflow.global_variables_initializer())
             self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
-                                 validation_split=0.3,
+                                 validation_split=0.05,
                                  epochs=self.n_epoch,
                                  batch_size=self.batch_size,
                                  shuffle=True,
