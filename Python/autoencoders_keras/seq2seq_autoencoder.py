@@ -85,6 +85,7 @@ class Seq2SeqAutoencoder(BaseEstimator,
         with tensorflow.device("/gpu:0"):
             # If return_sequences is True: 3D tensor with shape (batch_size, timesteps, units).
             # Else: 2D tensor with shape (batch_size, units).
+            # Note that n_rows here is timesteps and n_cols here is units.
             # If return_state is True: a list of tensors. 
             # The first tensor is the output. The remaining tensors are the last states, each with shape (batch_size, units).
             # If stateful is True: the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
