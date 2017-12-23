@@ -48,7 +48,7 @@ class Seq2SeqAutoencoder(BaseEstimator,
         for i in range(self.encoder_layers):
             if i == 0:
                 with tensorflow.device("/gpu:0"):
-                    # Returns n_rows sequences of vectors of dimension encoding_dim.
+                    # Returns a sequence of n_rows vectors of dimension n_hidden_units.
                     self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.input_data)
                     self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
                     self.encoded = Dropout(rate=0.5)(self.encoded)
@@ -67,7 +67,7 @@ class Seq2SeqAutoencoder(BaseEstimator,
             self.encoded = CuDNNLSTM(units=self.encoding_dim, return_sequences=False, stateful=self.stateful)(self.encoded)
             self.encoded = Activation("sigmoid")(self.encoded)
 
-            # Reurns a sequence containing n_rows vectors where each vector is of dimension encoding_dim.
+            # Returns a sequence containing n_rows vectors where each vector is of dimension encoding_dim.
             # output_shape: (None, n_rows, encoding_dim).
             self.decoded = RepeatVector(self.n_rows)(self.encoded)
 
