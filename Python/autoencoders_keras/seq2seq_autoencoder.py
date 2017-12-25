@@ -50,22 +50,20 @@ class Seq2SeqAutoencoder(BaseEstimator,
                 with tensorflow.device("/gpu:0"):
                     # Returns a sequence of n_rows vectors of dimension n_hidden_units.
                     self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.input_data)
-                    self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
-                    self.encoded = Dropout(rate=0.5)(self.encoded)
+#                    self.encoded = TimeDistributed(Dense(units=self.n_hidden_units, activation="elu"))(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
                 with tensorflow.device("/gpu:0"):
                     self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.encoded)
-                    self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
-                    self.encoded = Dropout(rate=0.5)(self.encoded)
+#                    self.encoded = TimeDistributed(Dense(units=self.n_hidden_units, activation="elu"))(self.encoded)
             elif i == self.encoder_layers - 1:
                 with tensorflow.device("/gpu:0"):
                     self.encoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.encoded)
-                    self.encoded = TimeDistributed(Activation("elu"))(self.encoded)
+#                    self.encoded = TimeDistributed(Dense(units=self.n_hidden_units, activation="elu"))(self.encoded)
 
         with tensorflow.device("/gpu:0"):
             # Returns 1 vector of dimension encoding_dim.
             self.encoded = CuDNNLSTM(units=self.encoding_dim, return_sequences=False, stateful=self.stateful)(self.encoded)
-            self.encoded = Activation("sigmoid")(self.encoded)
+#            self.encoded = Dense(units=self.encoding_dim, activation="elu")(self.encoded)
 
             # Returns a sequence containing n_rows vectors where each vector is of dimension encoding_dim.
             # output_shape: (None, n_rows, encoding_dim).
@@ -75,12 +73,11 @@ class Seq2SeqAutoencoder(BaseEstimator,
             if i < self.encoder_layers - 1:
                 with tensorflow.device("/gpu:0"):
                     self.decoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.decoded)
-                    self.decoded = TimeDistributed(Activation("elu"))(self.decoded)
-                    self.decoded = Dropout(rate=0.5)(self.decoded)
+#                    self.decoded = TimeDistributed(Dense(units=self.n_hidden_units, activation="elu"))(self.decoded)
             elif i == self.decoder_layers - 1:
                 with tensorflow.device("/gpu:0"):
                     self.decoded = CuDNNLSTM(units=self.n_hidden_units, return_sequences=True, stateful=self.stateful)(self.decoded)
-                    self.decoded = TimeDistributed(Activation("elu"))(self.decoded)
+#                    self.decoded = TimeDistributed(Dense(units=self.n_hidden_units, activation="elu"))(self.decoded)
         
         with tensorflow.device("/gpu:0"):
             # If return_sequences is True: 3D tensor with shape (batch_size, timesteps, units).
@@ -91,6 +88,7 @@ class Seq2SeqAutoencoder(BaseEstimator,
             # If stateful is True: the last state for each sample at index i in a batch will be used as initial state for the sample of index i in the following batch.
             # For LSTM (not CuDNNLSTM) If unroll is True: the network will be unrolled, else a symbolic loop will be used. Unrolling can speed-up a RNN, although it tends to be more memory-intensive. Unrolling is only suitable for short sequences.
             self.decoded = CuDNNLSTM(units=self.n_cols, return_sequences=True, stateful=self.stateful)(self.decoded)
+#            self.decoded = TimeDistributed(Dense(units=self.n_cols, activation="sigmoid"))(self.decoded)
 
             self.autoencoder = Model(self.input_data, self.decoded)
             self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
