@@ -1,15 +1,14 @@
 ---
-title: "Domain agnostic feature engineering using deep learning and Bayesian inference: Automating the automation"
-author:
-- Hamaad Shah
-- Gourab De
-- Jeremy Achin
 output:
+  word_document: default
   pdf_document: default
   html_document: default
 ---
 
-# Autoencoders
+# Domain agnostic feature engineering using deep learning and Bayesian inference: Automating the automation
+- Hamaad Shah
+- Gourab De
+- Jeremy Achin
 
 ---
 
@@ -26,6 +25,7 @@ We will use the MNIST dataset for this purpose where the raw data is a 2 dimensi
 ---
 
 We will use a synthetic dataset where the raw data is a 2 dimensional tensor of historical policy level information per policy-period combination: Per unit this will be $\mathbb{R}^{4\times3}$, i.e., 4 historical time periods and 3 transactions types. The policy-period combination is our unit of analysis: We will predict the probability of loss for time period 5 in the future - think of this as a potential renewal of the policy for which we need to predict whether it would make a loss for us or not hence affecting whether we decided to renew the policy and / or adjust the renewal premium to take into account the additional risk. This is a binary class classification task and we will use the AUROC score and accuracy score to assess model performance.
+
 
 ```python
 # Author: Hamaad Shah.
@@ -56,7 +56,7 @@ from keras import metrics
 
 from autoencoders_keras.get_session import get_session
 import keras.backend.tensorflow_backend as KTF
-KTF.set_session(get_session(gpu_fraction=0.75, allow_soft_placement=True, og_device_placement=False))
+KTF.set_session(get_session(gpu_fraction=0.75, allow_soft_placement=True, log_device_placement=False))
 
 import tensorflow as tf
 from tensorflow.python.client import device_lib
@@ -412,10 +412,10 @@ Another popular variant is the peephole LSTM where the gates are allowed to peep
 
 \begin{align*}
 i_{t} &= \sigma(W_{i}x_{t} + U_{i}h_{t-1} + V_{i}c_{t-1} + b_{i}) \\
-\tilde{c_{t}} &= f(W_{c} * x_{t} + U_{c} * h_{t-1} + V_{c}c_{t-1} + b_{c}) \\
-f_{t} &= \sigma(W_{f} * x_{t} + U_{f} * h_{t-1} + V_{f}c_{t-1} + b_{f}) \\
+\tilde{c_{t}} &= f(W_{c}x_{t} + U_{c}h_{t-1} + V_{c}c_{t-1} + b_{c}) \\
+f_{t} &= \sigma(W_{f}x_{t} + U_{f}h_{t-1} + V_{f}c_{t-1} + b_{f}) \\
 c_{t} &= i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} \\ 
-o_{t} &= \sigma(W_{o} * x_{t} + U_{o} * h_{t-1} + V_{o}c_{t} + b_{o}) \\
+o_{t} &= \sigma(W_{o}x_{t} + U_{o}h_{t-1} + V_{o}c_{t} + b_{o}) \\
 h_{t} &= o_{t} \otimes f(c_{t})
 \end{align*}
 
@@ -529,8 +529,8 @@ p(X|Z)
 
 ---
 
-* The AUROC score for the MNIST classification task with a sequence to variational autoencoder: 99.814369%.
-* The accuracy score for the MNIST classification task with a sequence to variational autoencoder: 96.520000%.
+* The AUROC score for the MNIST classification task with a variational autoencoder: 99.814369%.
+* The accuracy score for the MNIST classification task with a variational autoencoder: 96.520000%.
 
 
 ```python
@@ -559,8 +559,8 @@ auroc_variational_autoencoder = roc_auc_score(lb.transform(y_test.reshape(y_test
 
 acc_variational_autoencoder = pipe_variational_autoencoder.score(X_test, y_test)
 
-print("The AUROC score for the MNIST classification task with a sequence to variational autoencoder: %.6f%%." % (auroc_variational_autoencoder * 100))
-print("The accuracy score for the MNIST classification task with a sequence to variational autoencoder: %.6f%%." % (acc_variational_autoencoder * 100))
+print("The AUROC score for the MNIST classification task with a variational autoencoder: %.6f%%." % (auroc_variational_autoencoder * 100))
+print("The accuracy score for the MNIST classification task with a variational autoencoder: %.6f%%." % (acc_variational_autoencoder * 100))
 
 if encoding_dim == 2:
     test_encoded_df = pd.DataFrame(pipe_variational_autoencoder.named_steps["autoencoder"].encoder.predict(X_test))
@@ -657,8 +657,8 @@ The principles and ideas apply to 2 dimensional convolution filters as they do f
 
 ---
 
-* The AUROC score for the MNIST classification task with a sequence to 2 dimensional convolutional autoencoder: 99.987741%.
-* The accuracy score for the MNIST classification task with a sequence to 2 dimensional convolutional autoencoder: 98.860000%.
+* The AUROC score for the MNIST classification task with a 2 dimensional convolutional autoencoder: 99.987741%.
+* The accuracy score for the MNIST classification task with a 2 dimensional convolutional autoencoder: 98.860000%.
 
 
 ```python
@@ -688,8 +688,8 @@ auroc_convolutional2D_autoencoder = roc_auc_score(lb.transform(y_test.reshape(y_
 
 acc_convolutional2D_autoencoder = pipe_convolutional2D_autoencoder.score(np.reshape(X_test, [X_test.shape[0], int(math.pow(X_test.shape[1], 0.5)), int(math.pow(X_test.shape[1], 0.5)), 1]), y_test)
 
-print("The AUROC score for the MNIST classification task with a sequence to 2 dimensional convolutional autoencoder: %.6f%%." % (auroc_convolutional2D_autoencoder * 100))
-print("The accuracy score for the MNIST classification task with a sequence to 2 dimensional convolutional autoencoder: %.6f%%." % (acc_convolutional2D_autoencoder * 100))
+print("The AUROC score for the MNIST classification task with a 2 dimensional convolutional autoencoder: %.6f%%." % (auroc_convolutional2D_autoencoder * 100))
+print("The accuracy score for the MNIST classification task with a 2 dimensional convolutional autoencoder: %.6f%%." % (acc_convolutional2D_autoencoder * 100))
 ```
 
 ## Insurance: No Autoencoders
@@ -994,8 +994,8 @@ In this case we use 2 dimensional convolutional autoencoders to learn a good rep
 
 ---
 
-* The AUROC score for the insurance classification task with a sequence to 2 dimensional convolutional autoencoder: 92.645798%.
-* The accuracy score for the insurance classification task with a sequence to 2 dimensional convolutional autoencoder: 86.000000%.
+* The AUROC score for the insurance classification task with a 2 dimensional convolutional autoencoder: 92.645798%.
+* The accuracy score for the insurance classification task with a 2 dimensional convolutional autoencoder: 86.000000%.
 
 
 ```python
@@ -1033,8 +1033,8 @@ auroc_convolutional2D_autoencoder = roc_auc_score(y_test,
 
 acc_convolutional2D_autoencoder = pipe_convolutional2D_autoencoder.score(X_test, y_test)
 
-print("The AUROC score for the insurance classification task with a sequence to 2 dimensional convolutional autoencoder: %.6f%%." % (auroc_convolutional2D_autoencoder * 100))
-print("The accuracy score for the insurance classification task with a sequence to 2 dimensional convolutional autoencoder: %.6f%%." % (acc_convolutional2D_autoencoder * 100))
+print("The AUROC score for the insurance classification task with a 2 dimensional convolutional autoencoder: %.6f%%." % (auroc_convolutional2D_autoencoder * 100))
+print("The accuracy score for the insurance classification task with a 2 dimensional convolutional autoencoder: %.6f%%." % (acc_convolutional2D_autoencoder * 100))
 ```
 
 ## Insurance: Variational Autoencoders
