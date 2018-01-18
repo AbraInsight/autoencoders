@@ -1,13 +1,12 @@
 ---
 output:
-  pdf_document: default
   word_document: default
+  pdf_document: default
   html_document: default
 ---
 
 # Domain agnostic feature engineering using deep learning and Bayesian inference: Automating the automation
 - Hamaad Shah
-- Gourab De
 - Jeremy Achin
 
 ---

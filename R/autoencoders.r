@@ -1,3 +1,4 @@
+# Author: Hamaad Shah.
 install.packages(pkgs = "https://cran.r-project.org/bin/macosx/el-capitan/contrib/3.4/insuranceData_1.0.tgz",
                  lib = .libPaths()[1],
                  repos = NULL)
