@@ -1,7 +1,6 @@
 ---
 output:
   word_document: default
-  pdf_document: default
   html_document: default
 ---
 
@@ -44,6 +43,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, LabelBinarizer, RobustScaler, StandardScaler
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
 
 from scipy.stats import norm
 
@@ -134,6 +134,36 @@ print("The AUROC score for the MNIST classification task without autoencoders: %
 print("The accuracy score for the MNIST classification task without autoencoders: %.6f%%." % (acc_base * 100))
 ```
 
+## MNIST: PCA
+
+---
+
+We use a PCA filter that picks the number of components that explain $99\%$ of the variation.
+
+### Results
+
+---
+
+* The AUROC score for the MNIST classification task with PCA: 98.966705%.
+* The accuracy score for the MNIST classification task with PCA: 91.430000%.
+
+
+```python
+pipe_pca = Pipeline(steps=[("PCA", PCA(n_components=0.99)),
+                           ("scaler_classifier", scaler_classifier),
+                           ("classifier", logistic)])
+pipe_pca = pipe_base.fit(X_train, y_train)
+
+auroc_pca = roc_auc_score(lb.transform(y_test.reshape(y_test.shape[0], 1)),
+                          pipe_pca.predict_proba(X_test), 
+                          average="weighted")
+
+acc_pca = pipe_pca.score(X_test, y_test)
+
+print("The AUROC score for the MNIST classification task with PCA: %.6f%%." % (auroc_pca * 100))
+print("The accuracy score for the MNIST classification task with PCA: %.6f%%." % (acc_pca * 100))
+```
+
 ## MNIST: Vanilla Autoencoders
 
 ---
@@ -150,6 +180,7 @@ Lets assume we have a single layer autoencoder using the Exponential Linear Unit
 
 * **Exponential Linear Unit:** The activation function is smooth everywhere and avoids the vanishing gradient problem as the output takes on negative values when the input is negative. $\alpha$ is taken to be $1.0$.
 
+$$
 \begin{align*}
 H_{\alpha}(z) &= 
 \begin{cases}
@@ -162,28 +193,31 @@ H_{\alpha}(z) &=
 &1 \quad \text{if} \quad z \geq 0
 \end{cases} 
 \end{align*}
-
+$$
 
 * **Batch Normalization:** The idea is to transform the inputs into a hidden layer's activation functions. We standardize or normalize first using the mean and variance parameters on a per feature basis and then learn a set of scaling and shifting parameters on a per feature basis that transforms the data. The following equations describe this layer succintly: The parameters we learn in this layer are $\left(\mu_{j}, \sigma_{j}^2, \beta_{j}, \gamma_{j}\right) \quad \forall j \in \{1, \dots, K\}$.
 
+$$
 \begin{align*}
 \mu_{j} &= \frac{1}{B} \sum_{i=1}^{B} X_{i,j} \quad &\forall j \in \{1, \dots, K\} \\
 \sigma_{j}^2 &= \frac{1}{B} \sum_{i=1}^{B} \left(X_{i,j} - \mu_{j}\right)^2 \quad &\forall j \in \{1, \dots, K\} \\
 \hat{X}_{:,j} &= \frac{X_{:,j} - \mu_{j}}{\sqrt{\sigma_{j}^2 + \epsilon}} \quad &\forall j \in \{1, \dots, K\} \\
 Z_{:,j} &= \gamma_{j}\hat{X}_{:,j} + \beta_{j} \quad &\forall j \in \{1, \dots, K\}
 \end{align*}
-
+$$
 
 * **Dropout:** This regularization technique simply drops the outputs from input and hidden units with a certain probability say $50\%$. 
 
 
 * **Adam Optimization Algorithm:** This adaptive algorithm combines ideas from the Momentum and RMSProp optimization algorithms. The goal is to have some memory of past gradients which can guide future parameters updates. The following equations for the algorithm succintly describe this method assuming $\theta$ is our set of parameters to be learnt and $\eta$ is the learning rate.
 
+$$
 \begin{align*}
 m &\leftarrow \beta_{1}m + \left[\left(1 - \beta_{1}\right)\left(\nabla_{\theta}\text{MSE}\right)\right] \\
 s &\leftarrow \beta_{2}s + \left[\left(1 - \beta_{2}\right)\left(\nabla_{\theta}\text{MSE} \otimes \nabla_{\theta}\text{MSE} \right)\right] \\
 \theta &\leftarrow \theta - \eta m \oslash \sqrt{s + \epsilon}
 \end{align*}
+$$
 
 ### Results
 
@@ -278,6 +312,7 @@ The ideas behind convolution filters are closely related to handcrafted feature 
 
 Suppose we have raw transactions data per some unit of analysis, i.e., mortgages, that will potentially help us in classifying a unit as either defaulted or not defaulted. We will keep this example simple by only allowing the transaction values to be either \$100 or \$0. The raw data per unit spans 5 time periods while the defaulted label is for the next period, i.e., period 6. Here is an example of a raw data for a particular unit:
 
+$$
 \begin{align*}
 x = 
 \begin{array}
@@ -291,29 +326,36 @@ x =
     \end{array}
     \right]
 \end{align*}
+$$
 
 Suppose further that if the average transaction value is \$20 then we will see a default in period 6 for this particular mortgage unit. Otherwise we do not see a default in period 6. The average transaction value is an example of a handcrafted feature: A predefined handcrafted feature that has not been learnt in any manner. It has been arrived at via domain knowledge of credit risk. Denote this as $\mathbf{H}(x)$.
 
 The idea of learning such a feature is an example of a 1 dimensional convolution filter. As follows:
 
+$$
 \begin{align*}
 \mathbf{C}(x|\alpha) = \alpha_1 x_1 + \alpha_2 x_2 + \alpha_3 x_3 + \alpha_4 x_4 + \alpha_5 x_5
 \end{align*}
+$$
 
 Assuming that $\mathbf{H}(x)$ is the correct representation of the raw data for this supervised learning task then the optimal set of parameters learnt via supervised learning, or perhaps unsupervised learning and then transferred to the supervised learning task, i.e., transfer learning, for $\mathbf{C}(x|\alpha)$ is as follows where $\alpha$ is $\left[0.2, 0.2, 0.2, 0.2, 0.2\right]$:
 
+$$
 \begin{align*}
 \mathbf{C}(x|\alpha) = 0.2 x_1 + 0.2 x_2 + 0.2 x_3 + 0.2 x_4 + 0.2 x_5
 \end{align*}
+$$
 
 This is a simple example however this clearly illusrates the principle behind using deep learning for automatic feature engineering or representation learning. One of the main benefits of learning such a representation in an unsupervised manner is that the same representation can then be used for multiple supervised learning tasks: Transfer learning. This is a principled manner of learning a representation from raw data: The client only needs to provide us with the raw 2 or 3 or more dimensional tensors and DataRobot will learn the optimal representation for potentially multiple supervised learning tasks at hand.
 
 To summarize the 1 dimensional convolution filter for our simple example is defined as: 
 
+$$
 \begin{align*}
 \mathbf{C}(x|\alpha)&= x * \alpha \\
 &= \sum_{t=1}^{5} x_t \alpha_t
 \end{align*}
+$$
 
 * $x$ is the input.
 * $\alpha$ is the kernel.
@@ -377,27 +419,34 @@ The gradients in a RNN depend on the parameter matrices defined for the model. S
 
 We calculate the value of the input gate, the value of the memory cell state at time period $t$ where $f(x)$ is some activation function and the value of the forget gate:
 
+$$
 \begin{align*}
 i_{t} &= \sigma(W_{i}x_{t} + U_{i}h_{t-1} + b_{i}) \\
 \tilde{c_{t}} &= f(W_{c}x_{t} + U_{c}h_{t-1} + b_{c}) \\
 f_{t} &= \sigma(W_{f}x_{t} + U_{f}h_{t-1} + b_{f})
 \end{align*}
+$$
 
 The forget gate controls the amount the LSTM remembers, i.e., the value of the memory cell state at time period $t-1$ where $\otimes$ is the hadamard product:
 
+$$
 \begin{align*}
 c_{t} = i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} 
 \end{align*}
+$$
 
 With the updated state of the memory cell we calculate the value of the outputs gate and finally the output value itself:
 
+$$
 \begin{align*}
 o_{t} &= \sigma(W_{o}x_{t} + U_{o}h_{t-1} + b_{o}) \\
 h_{t} &= o_{t} \otimes f(c_{t})
 \end{align*}
+$$
 
 We can have a wide variety of LSTM architectures such as the convolutional LSTM where note that we replace the matrix multiplication operators in the input gate, the initial estimate $\tilde{c_{t}}$ of the memory cell state, the forget gate and the output gate by the convolution operator $*$:
 
+$$
 \begin{align*}
 i_{t} &= \sigma(W_{i} * x_{t} + U_{i} * h_{t-1} + b_{i}) \\
 \tilde{c_{t}} &= f(W_{c} * x_{t} + U_{c} * h_{t-1} + b_{c}) \\
@@ -406,9 +455,11 @@ c_{t} &= i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} \\
 o_{t} &= \sigma(W_{o} * x_{t} + U_{o} * h_{t-1} + b_{o}) \\
 h_{t} &= o_{t} \otimes f(c_{t})
 \end{align*}
+$$
 
 Another popular variant is the peephole LSTM where the gates are allowed to peep at the memory cell state:
 
+$$
 \begin{align*}
 i_{t} &= \sigma(W_{i}x_{t} + U_{i}h_{t-1} + V_{i}c_{t-1} + b_{i}) \\
 \tilde{c_{t}} &= f(W_{c}x_{t} + U_{c}h_{t-1} + V_{c}c_{t-1} + b_{c}) \\
@@ -417,6 +468,7 @@ c_{t} &= i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} \\
 o_{t} &= \sigma(W_{o}x_{t} + U_{o}h_{t-1} + V_{o}c_{t} + b_{o}) \\
 h_{t} &= o_{t} \otimes f(c_{t})
 \end{align*}
+$$
 
 The goal for the sequence to sequence autoencoder is to create a representation of the raw data using a LSTM as an encoder. This representation will be a sequence of vectors say, $h_{1}, \dots, h_{T}$, learnt from a sequence of raw data vectors say, $x_{1}, \dots, x_{T}$. The final vector of the representation, $h_{T}$, is our encoded representation, also called a context vector. This context vector is repeated as many times as the length of the sequence such that it can be used as an input to a decoder which is yet another LSTM. The decoder LSTM will use this context vector to recontruct the sequence of raw data vectors, $\tilde{x_{1}}, \dots, \tilde{x_{T}}$. If the context vector is useful in the recontruction task then it can be further used for other tasks such as predicting default risk as given in our example.
 
@@ -467,56 +519,72 @@ We now combine Bayesian inference with deep learning by using variational infere
 * Assume $X$ is our raw data while $Z$ is our learnt representation. 
 * We have a prior belief on our learnt representation: 
 
+$$
 \begin{align*}
 p(Z)
 \end{align*}
+$$
 
 * The posterior distribution for our learnt representation is: 
 
+$$
 \begin{align*}
 p(Z|X)=\frac{p(X|Z)p(Z)}{p(X)}
 \end{align*}
+$$
 
 * The marginal likelihood, $p(X)$, is often intractable causing the posterior distribution, $p(Z|X)$, to be intractable:
 
+$$
 \begin{align*}
 p(X)=\int_{Z}p(X|Z)p(Z)dZ
 \end{align*}
+$$
 
 * We therefore need an approximate posterior distribution via variational inference that can deal with the intractability. This additionally also provides the benefit of dealing with large scale datasets as generally Markov Chain Monte Carlo (MCMC) methods are not well suited for large scale datasets. One might also consider Laplace approximation for the approximate posterior distribution however we will stick with variational inference as it allows a richer set of approximations compared to Laplace approximation. Laplace approximation simply amounts to finding the Maximum A Posteriori (MAP) estimate to an augmented likelihood optimization, taking the negative of the inverse of the Hessian at the MAP estimate to estimate the variance-covariance matrix and finally use the variance-covariance matrix with a multivariate Gaussian distribution or some other appropriate multivariate distribution.
 
 * Assume that our approximate posterior distribution, which is also our probabilistic encoder, is given as:
 
+$$
 \begin{align*}
 q(Z|X)
 \end{align*}
+$$
 
 * Our probabilistic decoder is given by:
 
+$$
 \begin{align*}
 p(X|Z)
 \end{align*}
+$$
 
 * Given our setup above with regards to an encoder and a decoder let us now write down the optimization problem where $\theta$ are the generative model parameters while $\phi$ are the variational parameters:
 
+$$
 \begin{align*}
 \log{p(X)}= \underbrace{D_{KL}(q(Z|X)||p(Z|X))}_\text{Intractable as p(Z|X) is intractable} + \underbrace{\mathcal{L}(\theta, \phi|X)}_\text{Evidence Lower Bound or ELBO}
 \end{align*}
+$$
 
 * Note that $D_{KL}(q(Z|X)||p(Z|X))$ is non-negative therefore that makes the ELBO a lower bound on $\log{p(X)}$:
 
+$$
 \begin{align*}
 \log{p(X)}\geq \mathcal{L}(\theta, \phi|X) \quad \text{as} \quad D_{KL}(q(Z|X)||p(Z|X)) \geq 0
 \end{align*}
+$$
 
 * Therefore we can alter our optimization problem to look only at the ELBO:
 
+$$
 \begin{align*}
 \mathcal{L}(\theta, \phi|X) &= \mathbb{E}_{q(Z|X)}\left[\log{p(X,Z)} - \log{q(Z|X)}\right] \\
 &= \mathbb{E}_{q(Z|X)}\left[\underbrace{\log{p(X|Z)}}_\text{Reconstruction error} + \log{p(Z)} - \log{q(Z|X)}\right] \\
 &= \mathbb{E}_{q(Z|X)}\left[\underbrace{\log{p(X|Z)}}_\text{Reconstruction error} - \underbrace{D_{KL}(q(Z|X)||p(Z))}_\text{Regularization}\right] \\
 &= \int_{Z} \left[\log{p(X|Z)} - D_{KL}(q(Z|X)||p(Z))\right] q(Z|X) dZ
 \end{align*}
+$$
 
 * The above integration problem can be solved via Monte Carlo integration as $D_{KL}(q(Z|X)||p(Z))$ is not intractable. Assuming that the probabilistic encoder $q(Z|X)$ is a multivariate Gaussian with a diagonal variance-covariance matrix we use the reparameterization trick to sample from this distribution say $M$ times in order to calculate the expectation term in the ELBO optimization problem. The reparameterization trick in this particular case amounts to sampling $M$ times from the standard Gaussian distribution, multiplying the samples by $\sigma$ and adding $\mu$ to the samples.  
 
@@ -609,6 +677,7 @@ if encoding_dim == 2:
 
 For 2 dimensional convolution filters the idea is similar as for the 1 dimensional convolution filters. We will stick to our previously mentioned banking example to illustrate this point.
 
+$$
 \begin{align*}
 x = 
 \begin{array}
@@ -626,9 +695,11 @@ x =
     \end{array}
     \right]
 \end{align*}
+$$
 
 In the 2 dimensional tensor of raw transactions data now we have 5 historical time periods, i.e., the rows, and 3 different transaction types, i.e., the columns. We will use a kernel, $\alpha \in \mathbb{R}^{2\times3}$, to extract useful features from the raw data. The choice of such a kernel means that we are interested in finding a feature map across all 3 transaction types and 2 historical time periods. We will use a stride length of 1 and a valid convolution to extract features over different patches of the raw data. The following will illustrate this point where $x_{\text{patch}} \subset x$:
 
+$$
 \begin{align*}
 \alpha &=
     \left[
@@ -649,6 +720,7 @@ x_{\text{patch}} &=
 \mathbf{C}(x=x_{\text{patch}}|\alpha) &= x * \alpha \\
 &= \sum_{t=1}^{2} \sum_{k=1}^{3} x_{t,k} \alpha_{t,k}
 \end{align*}
+$$
 
 The principles and ideas apply to 2 dimensional convolution filters as they do for their 1 dimensional counterparts there we will not repeat them here.
 
@@ -727,7 +799,8 @@ range_X_train = max_X_train - min_X_train + sys.float_info.epsilon
 X_train = (X_train - min_X_train) / range_X_train
 X_test = (X_test - min_X_train) / range_X_train
 
-pipe_base = Pipeline(steps=[("classifier", logistic)])
+pipe_base = Pipeline(steps=[("scaler_classifier", scaler_classifier),
+                            ("classifier", logistic)])
 
 pipe_base = pipe_base.fit(X_train, y_train)
 
@@ -739,6 +812,37 @@ acc_base = pipe_base.score(X_test, y_test)
 
 print("The AUROC score for the insurance classification task without autoencoders: %.6f%%." % (auroc_base * 100))
 print("The accuracy score for the insurance classification task without autoencoders: %.6f%%." % (acc_base * 100))
+```
+
+## Insurance: PCA
+
+---
+
+We now proceed to run the insurance model without any handcrafted or deep learning based feature engineering however with a PCA filter that picks the number of components that explain $99\%$ of the variation.
+
+### Results
+
+---
+
+* The AUROC score for the insurance classification task with PCA: 91.128859%.
+* The accuracy score for the insurance classification task with PCA: 82.000000%.
+
+
+```python
+pipe_pca = Pipeline(steps=[("PCA", PCA(n_components=0.99)),
+                           ("scaler_classifier", scaler_classifier),
+                           ("classifier", logistic)])
+
+pipe_pca = pipe_pca.fit(X_train, y_train)
+
+auroc_pca = roc_auc_score(y_true=y_test,
+                          y_score=pipe_pca.predict_proba(X_test)[:, 1], 
+                          average="weighted")
+    
+acc_pca = pipe_pca.score(X_test, y_test)
+
+print("The AUROC score for the insurance classification task with PCA: %.6f%%." % (auroc_pca * 100))
+print("The accuracy score for the insurance classification task with PCA: %.6f%%." % (acc_pca * 100))
 ```
 
 ## Insurance: Handcrafted Features
@@ -774,18 +878,50 @@ range_X_train = max_X_train - min_X_train + sys.float_info.epsilon
 X_train = (X_train - min_X_train) / range_X_train
 X_test = (X_test - min_X_train) / range_X_train
 
-pipe_base = Pipeline(steps=[("classifier", logistic)])
+pipe_hcfe = Pipeline(steps=[("scaler_classifier", scaler_classifier),
+                            ("classifier", logistic)])
 
-pipe_base = pipe_base.fit(X_train, y_train)
+pipe_hcfe = pipe_hcfe.fit(X_train, y_train)
 
-auroc_base = roc_auc_score(y_true=y_test,
-                           y_score=pipe_base.predict_proba(X_test)[:, 1], 
+auroc_hcfe = roc_auc_score(y_true=y_test,
+                           y_score=pipe_hcfe.predict_proba(X_test)[:, 1], 
                            average="weighted")
     
-acc_base = pipe_base.score(X_test, y_test)
+acc_hcfe = pipe_hcfe.score(X_test, y_test)
 
-print("The AUROC score for the insurance classification task with handcrafted features: %.6f%%." % (auroc_base * 100))
-print("The accuracy score for the insurance classification task with handcrafted features: %.6f%%." % (acc_base * 100))
+print("The AUROC score for the insurance classification task with handcrafted features: %.6f%%." % (auroc_hcfe * 100))
+print("The accuracy score for the insurance classification task with handcrafted features: %.6f%%." % (acc_hcfe * 100))
+```
+
+## Insurance: Handcrafted Features and PCA
+
+---
+
+In this case we have created some handcrafted features which we believe provide a useful representation of the raw data for the insurance model. We also use a PCA filter.
+
+### Results
+
+---
+
+* The AUROC score for the insurance classification task with handcrafted features and PCA: 93.160377%.
+* The accuracy score for the insurance classification task with handcrafted features and PCA: 83.333333%.
+
+
+```python
+pipe_hcfe_pca = Pipeline(steps=[("PCA", PCA(n_components=0.99)),
+                                ("scaler_classifier", scaler_classifier),
+                                ("classifier", logistic)])
+    
+pipe_hcfe_pca = pipe_hcfe_pca.fit(X_train, y_train)
+
+auroc_hcfe_pca = roc_auc_score(y_true=y_test,
+                               y_score=pipe_hcfe_pca.predict_proba(X_test)[:, 1], 
+                               average="weighted")
+    
+acc_hcfe_pca = pipe_hcfe_pca.score(X_test, y_test)
+
+print("The AUROC score for the insurance classification task with handcrafted features and PCA: %.6f%%." % (auroc_hcfe_pca * 100))
+print("The accuracy score for the insurance classification task with handcrafted features and PCA: %.6f%%." % (acc_hcfe_pca * 100))
 ```
 
 ## Insurance: Vanilla Autoencoders

@@ -153,6 +153,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import MinMaxScaler, LabelBinarizer, RobustScaler, StandardScaler
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.decomposition import PCA
 
 from scipy.stats import norm
 
@@ -233,6 +234,32 @@ print(&quot;The AUROC score for the MNIST classification task without autoencode
 print(&quot;The accuracy score for the MNIST classification task without autoencoders: %.6f%%.&quot; % (acc_base * 100))</code></pre>
 </div>
 </div>
+<div id="mnist-pca" class="section level2">
+<h2>MNIST: PCA</h2>
+<hr />
+<p>We use a PCA filter that picks the number of components that explain <span class="math inline">\(99\%\)</span> of the variation.</p>
+<div id="results-1" class="section level3">
+<h3>Results</h3>
+<hr />
+<ul>
+<li>The AUROC score for the MNIST classification task with PCA: 98.966705%.</li>
+<li>The accuracy score for the MNIST classification task with PCA: 91.430000%.</li>
+</ul>
+<pre class="python"><code>pipe_pca = Pipeline(steps=[(&quot;PCA&quot;, PCA(n_components=0.99)),
+                           (&quot;scaler_classifier&quot;, scaler_classifier),
+                           (&quot;classifier&quot;, logistic)])
+pipe_pca = pipe_base.fit(X_train, y_train)
+
+auroc_pca = roc_auc_score(lb.transform(y_test.reshape(y_test.shape[0], 1)),
+                          pipe_pca.predict_proba(X_test), 
+                          average=&quot;weighted&quot;)
+
+acc_pca = pipe_pca.score(X_test, y_test)
+
+print(&quot;The AUROC score for the MNIST classification task with PCA: %.6f%%.&quot; % (auroc_pca * 100))
+print(&quot;The accuracy score for the MNIST classification task with PCA: %.6f%%.&quot; % (acc_pca * 100))</code></pre>
+</div>
+</div>
 <div id="mnist-vanilla-autoencoders" class="section level2">
 <h2>MNIST: Vanilla Autoencoders</h2>
 <hr />
@@ -244,7 +271,8 @@ print(&quot;The accuracy score for the MNIST classification task without autoenc
 <ul>
 <li><strong>Exponential Linear Unit:</strong> The activation function is smooth everywhere and avoids the vanishing gradient problem as the output takes on negative values when the input is negative. <span class="math inline">\(\alpha\)</span> is taken to be <span class="math inline">\(1.0\)</span>.</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 H_{\alpha}(z) &amp;= 
 \begin{cases}
 &amp;\alpha\left(\exp(z) - 1\right) \quad \text{if} \quad z &lt; 0 \\
@@ -255,26 +283,31 @@ H_{\alpha}(z) &amp;=
 &amp;\alpha\left(\exp(z)\right) \quad \text{if} \quad z &lt; 0 \\
 &amp;1 \quad \text{if} \quad z \geq 0
 \end{cases} 
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li><strong>Batch Normalization:</strong> The idea is to transform the inputs into a hidden layer’s activation functions. We standardize or normalize first using the mean and variance parameters on a per feature basis and then learn a set of scaling and shifting parameters on a per feature basis that transforms the data. The following equations describe this layer succintly: The parameters we learn in this layer are <span class="math inline">\(\left(\mu_{j}, \sigma_{j}^2, \beta_{j}, \gamma_{j}\right) \quad \forall j \in \{1, \dots, K\}\)</span>.</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \mu_{j} &amp;= \frac{1}{B} \sum_{i=1}^{B} X_{i,j} \quad &amp;\forall j \in \{1, \dots, K\} \\
 \sigma_{j}^2 &amp;= \frac{1}{B} \sum_{i=1}^{B} \left(X_{i,j} - \mu_{j}\right)^2 \quad &amp;\forall j \in \{1, \dots, K\} \\
 \hat{X}_{:,j} &amp;= \frac{X_{:,j} - \mu_{j}}{\sqrt{\sigma_{j}^2 + \epsilon}} \quad &amp;\forall j \in \{1, \dots, K\} \\
 Z_{:,j} &amp;= \gamma_{j}\hat{X}_{:,j} + \beta_{j} \quad &amp;\forall j \in \{1, \dots, K\}
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li><p><strong>Dropout:</strong> This regularization technique simply drops the outputs from input and hidden units with a certain probability say <span class="math inline">\(50\%\)</span>.</p></li>
 <li><p><strong>Adam Optimization Algorithm:</strong> This adaptive algorithm combines ideas from the Momentum and RMSProp optimization algorithms. The goal is to have some memory of past gradients which can guide future parameters updates. The following equations for the algorithm succintly describe this method assuming <span class="math inline">\(\theta\)</span> is our set of parameters to be learnt and <span class="math inline">\(\eta\)</span> is the learning rate.</p></li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 m &amp;\leftarrow \beta_{1}m + \left[\left(1 - \beta_{1}\right)\left(\nabla_{\theta}\text{MSE}\right)\right] \\
 s &amp;\leftarrow \beta_{2}s + \left[\left(1 - \beta_{2}\right)\left(\nabla_{\theta}\text{MSE} \otimes \nabla_{\theta}\text{MSE} \right)\right] \\
 \theta &amp;\leftarrow \theta - \eta m \oslash \sqrt{s + \epsilon}
-\end{align*}\]</span>
-<div id="results-1" class="section level3">
+\end{align*}
+\]</span></p>
+<div id="results-2" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -312,7 +345,7 @@ print(&quot;The accuracy score for the MNIST classification task with an autoenc
 <h2>MNIST: Denoising Autoencoders</h2>
 <hr />
 <p>The idea here is to add some noise to the data and try to learn a set of robust features that can reconstruct the non-noisy data from the noisy data. The MSE objective functions is as follows, <span class="math inline">\(\frac{1}{N}||D(E(X + \epsilon)) - X||^{2}_{2}\)</span>, where <span class="math inline">\(\epsilon\)</span> is some noise term.</p>
-<div id="results-2" class="section level3">
+<div id="results-3" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -357,7 +390,8 @@ print(&quot;The accuracy score for the MNIST classification task with a denoisin
 <p>So far we have used flattened or reshaped raw data. Such a 1 dimensional tensor of pixel intensities per image, <span class="math inline">\(\mathbb{R}^{784}\)</span>, might not take into account useful spatial features that the 2 dimensional tensor, <span class="math inline">\(\mathbb{R}^{28\times28}\)</span>, might contain. To overcome this problem, we introduce the concept of convolution filters, considering first their 1 dimensional version and then their 2 dimensional version.</p>
 <p>The ideas behind convolution filters are closely related to handcrafted feature engineering: One can view the handcrafted features as simply the result of a predefined convolution filter, i.e., a convolution filter that has not been learnt based on the raw data at hand.</p>
 <p>Suppose we have raw transactions data per some unit of analysis, i.e., mortgages, that will potentially help us in classifying a unit as either defaulted or not defaulted. We will keep this example simple by only allowing the transaction values to be either $100 or $0. The raw data per unit spans 5 time periods while the defaulted label is for the next period, i.e., period 6. Here is an example of a raw data for a particular unit:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 x = 
 \begin{array}
 {l}
@@ -369,22 +403,29 @@ x =
     \$0 \\ \$0 \\ \$100 \\ \$0 \\ \$0
     \end{array}
     \right]
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>Suppose further that if the average transaction value is $20 then we will see a default in period 6 for this particular mortgage unit. Otherwise we do not see a default in period 6. The average transaction value is an example of a handcrafted feature: A predefined handcrafted feature that has not been learnt in any manner. It has been arrived at via domain knowledge of credit risk. Denote this as <span class="math inline">\(\mathbf{H}(x)\)</span>.</p>
 <p>The idea of learning such a feature is an example of a 1 dimensional convolution filter. As follows:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \mathbf{C}(x|\alpha) = \alpha_1 x_1 + \alpha_2 x_2 + \alpha_3 x_3 + \alpha_4 x_4 + \alpha_5 x_5
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>Assuming that <span class="math inline">\(\mathbf{H}(x)\)</span> is the correct representation of the raw data for this supervised learning task then the optimal set of parameters learnt via supervised learning, or perhaps unsupervised learning and then transferred to the supervised learning task, i.e., transfer learning, for <span class="math inline">\(\mathbf{C}(x|\alpha)\)</span> is as follows where <span class="math inline">\(\alpha\)</span> is <span class="math inline">\(\left[0.2, 0.2, 0.2, 0.2, 0.2\right]\)</span>:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \mathbf{C}(x|\alpha) = 0.2 x_1 + 0.2 x_2 + 0.2 x_3 + 0.2 x_4 + 0.2 x_5
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>This is a simple example however this clearly illusrates the principle behind using deep learning for automatic feature engineering or representation learning. One of the main benefits of learning such a representation in an unsupervised manner is that the same representation can then be used for multiple supervised learning tasks: Transfer learning. This is a principled manner of learning a representation from raw data: The client only needs to provide us with the raw 2 or 3 or more dimensional tensors and DataRobot will learn the optimal representation for potentially multiple supervised learning tasks at hand.</p>
 <p>To summarize the 1 dimensional convolution filter for our simple example is defined as:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \mathbf{C}(x|\alpha)&amp;= x * \alpha \\
 &amp;= \sum_{t=1}^{5} x_t \alpha_t
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li><span class="math inline">\(x\)</span> is the input.</li>
 <li><span class="math inline">\(\alpha\)</span> is the kernel.</li>
@@ -397,7 +438,7 @@ x =
 </ul>
 <p>This automates feature engineering however introduces architecture engineering where different architectures consisting of various convolution filters, activation functions, batch normalization layers, dropout layers and pooling operators can be stacked together in a pipeline in order to learn a good representation of the raw data. One usually creates an ensemble of such architectures.</p>
 <p>The goal behind convolutional autoencoders is to use convolution filters, activation functions, batch normalization layers, dropout layers and pooling operators to create an encoder function which will learn a good representation of our raw data. The decoder will also use a similar set of layers as the encoder to reconstruct the raw data with one exception: Instead of using a pooling operator it will use an upsampling operator. The basic idea behind the upsampling operator is to repeat an element a certain number of times say size 4: One can view this as the inverse operator to the pooling operator. The pooling operator is essentially a downsampling operator and the upsampling operator is simply the inverse of that in some sense.</p>
-<div id="results-3" class="section level3">
+<div id="results-4" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -440,40 +481,50 @@ print(&quot;The accuracy score for the MNIST classification task with a 1 dimens
 <p>Given our mortgage default example a potentially more useful deep learning architecture might be the Recurrent Neural Network (RNN), specifically their state of the art variant the Long Short Term Memory (LSTM) network. The goal is to explicitly take into account the sequential nature of the raw data.</p>
 <p>The gradients in a RNN depend on the parameter matrices defined for the model. Simply put these parameter matrices can end up being multiplied many times over and hence cause two major problems for learning: Exploding and vanishing gradients. If the spectral radius of the parameter matrices, i.e., the maximum absolute value of the eigenvalues of a matrix, is more than 1 then gradients can become large enough, i.e., explode in value, such that learning diverges and similarly if the spectral radius is less than 1 then gradients can become small, i.e., vanish in value, such that the next best transition for the parameters cannot be reliably calculated. Appropriate calculation of the gradient is important for estimating the optimal set of parameters that define a machine learning method and the LSTM network overcomes these problems in a vanilla RNN. We now define the LSTM network for 1 time step, i.e., 1 memory cell.</p>
 <p>We calculate the value of the input gate, the value of the memory cell state at time period <span class="math inline">\(t\)</span> where <span class="math inline">\(f(x)\)</span> is some activation function and the value of the forget gate:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 i_{t} &amp;= \sigma(W_{i}x_{t} + U_{i}h_{t-1} + b_{i}) \\
 \tilde{c_{t}} &amp;= f(W_{c}x_{t} + U_{c}h_{t-1} + b_{c}) \\
 f_{t} &amp;= \sigma(W_{f}x_{t} + U_{f}h_{t-1} + b_{f})
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>The forget gate controls the amount the LSTM remembers, i.e., the value of the memory cell state at time period <span class="math inline">\(t-1\)</span> where <span class="math inline">\(\otimes\)</span> is the hadamard product:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 c_{t} = i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} 
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>With the updated state of the memory cell we calculate the value of the outputs gate and finally the output value itself:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 o_{t} &amp;= \sigma(W_{o}x_{t} + U_{o}h_{t-1} + b_{o}) \\
 h_{t} &amp;= o_{t} \otimes f(c_{t})
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>We can have a wide variety of LSTM architectures such as the convolutional LSTM where note that we replace the matrix multiplication operators in the input gate, the initial estimate <span class="math inline">\(\tilde{c_{t}}\)</span> of the memory cell state, the forget gate and the output gate by the convolution operator <span class="math inline">\(*\)</span>:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 i_{t} &amp;= \sigma(W_{i} * x_{t} + U_{i} * h_{t-1} + b_{i}) \\
 \tilde{c_{t}} &amp;= f(W_{c} * x_{t} + U_{c} * h_{t-1} + b_{c}) \\
 f_{t} &amp;= \sigma(W_{f} * x_{t} + U_{f} * h_{t-1} + b_{f}) \\
 c_{t} &amp;= i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} \\ 
 o_{t} &amp;= \sigma(W_{o} * x_{t} + U_{o} * h_{t-1} + b_{o}) \\
 h_{t} &amp;= o_{t} \otimes f(c_{t})
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>Another popular variant is the peephole LSTM where the gates are allowed to peep at the memory cell state:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 i_{t} &amp;= \sigma(W_{i}x_{t} + U_{i}h_{t-1} + V_{i}c_{t-1} + b_{i}) \\
 \tilde{c_{t}} &amp;= f(W_{c}x_{t} + U_{c}h_{t-1} + V_{c}c_{t-1} + b_{c}) \\
 f_{t} &amp;= \sigma(W_{f}x_{t} + U_{f}h_{t-1} + V_{f}c_{t-1} + b_{f}) \\
 c_{t} &amp;= i_{t} \otimes \tilde{c_{t}} + f_{t} \otimes c_{t-1} \\ 
 o_{t} &amp;= \sigma(W_{o}x_{t} + U_{o}h_{t-1} + V_{o}c_{t} + b_{o}) \\
 h_{t} &amp;= o_{t} \otimes f(c_{t})
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>The goal for the sequence to sequence autoencoder is to create a representation of the raw data using a LSTM as an encoder. This representation will be a sequence of vectors say, <span class="math inline">\(h_{1}, \dots, h_{T}\)</span>, learnt from a sequence of raw data vectors say, <span class="math inline">\(x_{1}, \dots, x_{T}\)</span>. The final vector of the representation, <span class="math inline">\(h_{T}\)</span>, is our encoded representation, also called a context vector. This context vector is repeated as many times as the length of the sequence such that it can be used as an input to a decoder which is yet another LSTM. The decoder LSTM will use this context vector to recontruct the sequence of raw data vectors, <span class="math inline">\(\tilde{x_{1}}, \dots, \tilde{x_{T}}\)</span>. If the context vector is useful in the recontruction task then it can be further used for other tasks such as predicting default risk as given in our example.</p>
-<div id="results-4" class="section level3">
+<div id="results-5" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -517,61 +568,77 @@ print(&quot;The accuracy score for the MNIST classification task with a sequence
 <li>Assume <span class="math inline">\(X\)</span> is our raw data while <span class="math inline">\(Z\)</span> is our learnt representation.</li>
 <li>We have a prior belief on our learnt representation:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 p(Z)
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li>The posterior distribution for our learnt representation is:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 p(Z|X)=\frac{p(X|Z)p(Z)}{p(X)}
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li>The marginal likelihood, <span class="math inline">\(p(X)\)</span>, is often intractable causing the posterior distribution, <span class="math inline">\(p(Z|X)\)</span>, to be intractable:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 p(X)=\int_{Z}p(X|Z)p(Z)dZ
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li><p>We therefore need an approximate posterior distribution via variational inference that can deal with the intractability. This additionally also provides the benefit of dealing with large scale datasets as generally Markov Chain Monte Carlo (MCMC) methods are not well suited for large scale datasets. One might also consider Laplace approximation for the approximate posterior distribution however we will stick with variational inference as it allows a richer set of approximations compared to Laplace approximation. Laplace approximation simply amounts to finding the Maximum A Posteriori (MAP) estimate to an augmented likelihood optimization, taking the negative of the inverse of the Hessian at the MAP estimate to estimate the variance-covariance matrix and finally use the variance-covariance matrix with a multivariate Gaussian distribution or some other appropriate multivariate distribution.</p></li>
 <li><p>Assume that our approximate posterior distribution, which is also our probabilistic encoder, is given as:</p></li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 q(Z|X)
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li>Our probabilistic decoder is given by:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 p(X|Z)
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li>Given our setup above with regards to an encoder and a decoder let us now write down the optimization problem where <span class="math inline">\(\theta\)</span> are the generative model parameters while <span class="math inline">\(\phi\)</span> are the variational parameters:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \log{p(X)}= \underbrace{D_{KL}(q(Z|X)||p(Z|X))}_\text{Intractable as p(Z|X) is intractable} + \underbrace{\mathcal{L}(\theta, \phi|X)}_\text{Evidence Lower Bound or ELBO}
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li>Note that <span class="math inline">\(D_{KL}(q(Z|X)||p(Z|X))\)</span> is non-negative therefore that makes the ELBO a lower bound on <span class="math inline">\(\log{p(X)}\)</span>:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \log{p(X)}\geq \mathcal{L}(\theta, \phi|X) \quad \text{as} \quad D_{KL}(q(Z|X)||p(Z|X)) \geq 0
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li>Therefore we can alter our optimization problem to look only at the ELBO:</li>
 </ul>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \mathcal{L}(\theta, \phi|X) &amp;= \mathbb{E}_{q(Z|X)}\left[\log{p(X,Z)} - \log{q(Z|X)}\right] \\
 &amp;= \mathbb{E}_{q(Z|X)}\left[\underbrace{\log{p(X|Z)}}_\text{Reconstruction error} + \log{p(Z)} - \log{q(Z|X)}\right] \\
 &amp;= \mathbb{E}_{q(Z|X)}\left[\underbrace{\log{p(X|Z)}}_\text{Reconstruction error} - \underbrace{D_{KL}(q(Z|X)||p(Z))}_\text{Regularization}\right] \\
 &amp;= \int_{Z} \left[\log{p(X|Z)} - D_{KL}(q(Z|X)||p(Z))\right] q(Z|X) dZ
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <ul>
 <li><p>The above integration problem can be solved via Monte Carlo integration as <span class="math inline">\(D_{KL}(q(Z|X)||p(Z))\)</span> is not intractable. Assuming that the probabilistic encoder <span class="math inline">\(q(Z|X)\)</span> is a multivariate Gaussian with a diagonal variance-covariance matrix we use the reparameterization trick to sample from this distribution say <span class="math inline">\(M\)</span> times in order to calculate the expectation term in the ELBO optimization problem. The reparameterization trick in this particular case amounts to sampling <span class="math inline">\(M\)</span> times from the standard Gaussian distribution, multiplying the samples by <span class="math inline">\(\sigma\)</span> and adding <span class="math inline">\(\mu\)</span> to the samples.</p></li>
 <li><p><span class="math inline">\(\mu\)</span> is our learnt representation used for the reconstruction of the raw data. If the learnt representation is useful it can then be used for other tasks as well.</p></li>
 <li><p>This is a powerful manner of combining Bayesian inference with deep learning. Variational inference used in this manner can be applied to various deep learning architectures and has further links with the Generative Adversarial Network (GAN). We explore the use of adversarial learning in representation learning in another repo/paper.</p></li>
 </ul>
-<div id="results-5" class="section level3">
+<div id="results-6" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -652,7 +719,8 @@ if encoding_dim == 2:
 <h2>MNIST: 2 Dimensional Convolutional Autoencoders</h2>
 <hr />
 <p>For 2 dimensional convolution filters the idea is similar as for the 1 dimensional convolution filters. We will stick to our previously mentioned banking example to illustrate this point.</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 x = 
 \begin{array}
 {l}
@@ -668,9 +736,11 @@ x =
     \$0 &amp; \$0 &amp; \$0
     \end{array}
     \right]
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>In the 2 dimensional tensor of raw transactions data now we have 5 historical time periods, i.e., the rows, and 3 different transaction types, i.e., the columns. We will use a kernel, <span class="math inline">\(\alpha \in \mathbb{R}^{2\times3}\)</span>, to extract useful features from the raw data. The choice of such a kernel means that we are interested in finding a feature map across all 3 transaction types and 2 historical time periods. We will use a stride length of 1 and a valid convolution to extract features over different patches of the raw data. The following will illustrate this point where <span class="math inline">\(x_{\text{patch}} \subset x\)</span>:</p>
-<span class="math display">\[\begin{align*}
+<p><span class="math display">\[
+\begin{align*}
 \alpha &amp;=
     \left[
     \begin{array}
@@ -689,9 +759,10 @@ x_{\text{patch}} &amp;=
     \right] \\
 \mathbf{C}(x=x_{\text{patch}}|\alpha) &amp;= x * \alpha \\
 &amp;= \sum_{t=1}^{2} \sum_{k=1}^{3} x_{t,k} \alpha_{t,k}
-\end{align*}\]</span>
+\end{align*}
+\]</span></p>
 <p>The principles and ideas apply to 2 dimensional convolution filters as they do for their 1 dimensional counterparts there we will not repeat them here.</p>
-<div id="results-6" class="section level3">
+<div id="results-7" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -732,7 +803,7 @@ print(&quot;The accuracy score for the MNIST classification task with a 2 dimens
 <h2>Insurance: No Autoencoders</h2>
 <hr />
 <p>We now proceed to run the insurance model without any handcrafted or deep learning based feature engineering.</p>
-<div id="results-7" class="section level3">
+<div id="results-8" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -760,7 +831,8 @@ range_X_train = max_X_train - min_X_train + sys.float_info.epsilon
 X_train = (X_train - min_X_train) / range_X_train
 X_test = (X_test - min_X_train) / range_X_train
 
-pipe_base = Pipeline(steps=[(&quot;classifier&quot;, logistic)])
+pipe_base = Pipeline(steps=[(&quot;scaler_classifier&quot;, scaler_classifier),
+                            (&quot;classifier&quot;, logistic)])
 
 pipe_base = pipe_base.fit(X_train, y_train)
 
@@ -774,11 +846,38 @@ print(&quot;The AUROC score for the insurance classification task without autoen
 print(&quot;The accuracy score for the insurance classification task without autoencoders: %.6f%%.&quot; % (acc_base * 100))</code></pre>
 </div>
 </div>
+<div id="insurance-pca" class="section level2">
+<h2>Insurance: PCA</h2>
+<hr />
+<p>We now proceed to run the insurance model without any handcrafted or deep learning based feature engineering however with a PCA filter that picks the number of components that explain <span class="math inline">\(99\%\)</span> of the variation.</p>
+<div id="results-9" class="section level3">
+<h3>Results</h3>
+<hr />
+<ul>
+<li>The AUROC score for the insurance classification task with PCA: 91.128859%.</li>
+<li>The accuracy score for the insurance classification task with PCA: 82.000000%.</li>
+</ul>
+<pre class="python"><code>pipe_pca = Pipeline(steps=[(&quot;PCA&quot;, PCA(n_components=0.99)),
+                           (&quot;scaler_classifier&quot;, scaler_classifier),
+                           (&quot;classifier&quot;, logistic)])
+
+pipe_pca = pipe_pca.fit(X_train, y_train)
+
+auroc_pca = roc_auc_score(y_true=y_test,
+                          y_score=pipe_pca.predict_proba(X_test)[:, 1], 
+                          average=&quot;weighted&quot;)
+    
+acc_pca = pipe_pca.score(X_test, y_test)
+
+print(&quot;The AUROC score for the insurance classification task with PCA: %.6f%%.&quot; % (auroc_pca * 100))
+print(&quot;The accuracy score for the insurance classification task with PCA: %.6f%%.&quot; % (acc_pca * 100))</code></pre>
+</div>
+</div>
 <div id="insurance-handcrafted-features" class="section level2">
 <h2>Insurance: Handcrafted Features</h2>
 <hr />
 <p>In this case we have created some handcrafted features which we believe provide a useful representation of the raw data for the insurance model.</p>
-<div id="results-8" class="section level3">
+<div id="results-10" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -803,25 +902,53 @@ range_X_train = max_X_train - min_X_train + sys.float_info.epsilon
 X_train = (X_train - min_X_train) / range_X_train
 X_test = (X_test - min_X_train) / range_X_train
 
-pipe_base = Pipeline(steps=[(&quot;classifier&quot;, logistic)])
+pipe_hcfe = Pipeline(steps=[(&quot;scaler_classifier&quot;, scaler_classifier),
+                            (&quot;classifier&quot;, logistic)])
 
-pipe_base = pipe_base.fit(X_train, y_train)
+pipe_hcfe = pipe_hcfe.fit(X_train, y_train)
 
-auroc_base = roc_auc_score(y_true=y_test,
-                           y_score=pipe_base.predict_proba(X_test)[:, 1], 
+auroc_hcfe = roc_auc_score(y_true=y_test,
+                           y_score=pipe_hcfe.predict_proba(X_test)[:, 1], 
                            average=&quot;weighted&quot;)
     
-acc_base = pipe_base.score(X_test, y_test)
+acc_hcfe = pipe_hcfe.score(X_test, y_test)
 
-print(&quot;The AUROC score for the insurance classification task with handcrafted features: %.6f%%.&quot; % (auroc_base * 100))
-print(&quot;The accuracy score for the insurance classification task with handcrafted features: %.6f%%.&quot; % (acc_base * 100))</code></pre>
+print(&quot;The AUROC score for the insurance classification task with handcrafted features: %.6f%%.&quot; % (auroc_hcfe * 100))
+print(&quot;The accuracy score for the insurance classification task with handcrafted features: %.6f%%.&quot; % (acc_hcfe * 100))</code></pre>
+</div>
+</div>
+<div id="insurance-handcrafted-features-and-pca" class="section level2">
+<h2>Insurance: Handcrafted Features and PCA</h2>
+<hr />
+<p>In this case we have created some handcrafted features which we believe provide a useful representation of the raw data for the insurance model. We also use a PCA filter.</p>
+<div id="results-11" class="section level3">
+<h3>Results</h3>
+<hr />
+<ul>
+<li>The AUROC score for the insurance classification task with handcrafted features and PCA: 93.160377%.</li>
+<li>The accuracy score for the insurance classification task with handcrafted features and PCA: 83.333333%.</li>
+</ul>
+<pre class="python"><code>pipe_hcfe_pca = Pipeline(steps=[(&quot;PCA&quot;, PCA(n_components=0.99)),
+                                (&quot;scaler_classifier&quot;, scaler_classifier),
+                                (&quot;classifier&quot;, logistic)])
+    
+pipe_hcfe_pca = pipe_hcfe_pca.fit(X_train, y_train)
+
+auroc_hcfe_pca = roc_auc_score(y_true=y_test,
+                               y_score=pipe_hcfe_pca.predict_proba(X_test)[:, 1], 
+                               average=&quot;weighted&quot;)
+    
+acc_hcfe_pca = pipe_hcfe_pca.score(X_test, y_test)
+
+print(&quot;The AUROC score for the insurance classification task with handcrafted features and PCA: %.6f%%.&quot; % (auroc_hcfe_pca * 100))
+print(&quot;The accuracy score for the insurance classification task with handcrafted features and PCA: %.6f%%.&quot; % (acc_hcfe_pca * 100))</code></pre>
 </div>
 </div>
 <div id="insurance-vanilla-autoencoders" class="section level2">
 <h2>Insurance: Vanilla Autoencoders</h2>
 <hr />
 <p>In this case we use vanilla autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.</p>
-<div id="results-9" class="section level3">
+<div id="results-12" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -859,7 +986,7 @@ print(&quot;The accuracy score for the insurance classification task with an aut
 <h2>Insurance: Denoising Autoencoders</h2>
 <hr />
 <p>In this case we use denoising autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.</p>
-<div id="results-10" class="section level3">
+<div id="results-13" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -902,7 +1029,7 @@ print(&quot;The accuracy score for the insurance classification task with a deno
 <h2>Insurance: Sequence to Sequence Autoencoders</h2>
 <hr />
 <p>In this case we use sequence to sequence autoencoders, taking into account the time series nature, i.e., sequential nature, of the raw transactions data, to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.</p>
-<div id="results-11" class="section level3">
+<div id="results-14" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -951,7 +1078,7 @@ print(&quot;The accuracy score for the insurance classification task with a sequ
 <h2>Insurance: 1 Dimensional Convolutional Autoencoders</h2>
 <hr />
 <p>In this case we use 1 dimensional convolutional autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.</p>
-<div id="results-12" class="section level3">
+<div id="results-15" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -1000,7 +1127,7 @@ print(&quot;The accuracy score for the insurance classification task with a 1 di
 <h2>Insurance: 2 Dimensional Convolutional Autoencoders</h2>
 <hr />
 <p>In this case we use 2 dimensional convolutional autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.</p>
-<div id="results-13" class="section level3">
+<div id="results-16" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
@@ -1049,7 +1176,7 @@ print(&quot;The accuracy score for the insurance classification task with a 2 di
 <h2>Insurance: Variational Autoencoders</h2>
 <hr />
 <p>In this case we use variational autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.</p>
-<div id="results-14" class="section level3">
+<div id="results-17" class="section level3">
 <h3>Results</h3>
 <hr />
 <ul>
