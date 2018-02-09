@@ -1,7 +1,7 @@
 ---
 output:
-  word_document: default
   pdf_document: default
+  word_document: default
   html_document: default
 ---
 
@@ -926,7 +926,7 @@ In this case we use 2 dimensional convolutional autoencoders to learn a good rep
 
 ### Results
 
-* The AUROC score for the insurance classification task with a 2 dimensional convolutional autoencoder: 92.645798%.
+The AUROC score for the insurance classification task with a 2 dimensional convolutional autoencoder: 92.645798%.
 
 
 ```python
