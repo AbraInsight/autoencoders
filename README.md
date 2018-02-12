@@ -1,2 +1,3 @@
-# Autoencoders
-Autoencoders mainly based on Francois Chollet's blog (https://blog.keras.io/building-autoencoders-in-keras.html) and some other references.
+# Automatic feature engineering using deep learning and Bayesian inference: Application to computer vision and synthetic financial transactions data
+
+We will explore the use of autoencoders for automatic feature engineering. The idea is to automatically learn a set of features from, potentially noisy, raw data that can be useful in supervised learning tasks such as in computer vision and insurance.
