@@ -14,9 +14,27 @@ We will explore the use of autoencoders for automatic feature engineering. The i
 
 We will use the MNIST dataset for this purpose where the raw data is a 2 dimensional tensor of pixel intensities per image. The image is our unit of analysis: We will predict the probability of each class for each image. This is a multiclass classification task and we will use the accuracy score to assess model performance on the test fold.
 
+\begin{align*}
+\bordermatrix{ 
+ & \text{Column}_{1} & \dots & \text{Column}_{28} \cr
+            \text{Row}_{1} & 1 & \dots &  2  \cr
+            \dots & \dots  & \dots &  \dots \cr    
+        \text{Row}_{28} & 3  & \dots  & 4 \cr} \in \mathbb{R}^{28 \times 28}
+\end{align*}
+
 ## Insurance
 
 We will use a synthetic dataset where the raw data is a 2 dimensional tensor of historical policy level information per policy-period combination: Per unit this will be a 4 by 3 dimensional tensor, i.e., 4 historical time periods and 3 transactions types. The policy-period combination is our unit of analysis: We will predict the probability of loss for time period 5 in the future - think of this as a potential renewal of the policy for which we need to predict whether it would make a loss for us or not hence affecting whether we decided to renew the policy and / or adjust the renewal premium to take into account the additional risk. This is a binary class classification task and we will use the AUROC score to assess model performance.
+
+\begin{align*}
+\bordermatrix{ 
+                  & \text{Paid} & \text{Reserves} & \text{Recoveries} \cr
+\text{Period}_{1} & \$0 & \$100 &  \$0  \cr
+\text{Period}_{2} & \$10  & \$50 &  \$0 \cr    
+\text{Period}_{3} & \$10  & \$15 &  \$0 \cr    
+\text{Period}_{4} & \$100  & \$0 &  \$0 \cr    
+        } \in \mathbb{R}^{4 \times 3}
+\end{align*} 
 
 ## Scikit-learn
 
@@ -112,6 +130,12 @@ The idea here is to add some noise to the data and try to learn a set of robust 
 \frac{1}{N}||D(E(X + \epsilon)) - X||^{2}_{2}
 \end{align*}
 
+\begin{align*}
+&X \in \mathbb{R}^{N \times 784} \\
+&E: \mathbb{R}^{N \times 784} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 784}
+\end{align*}
+
 ### Results
 
 The accuracy score for the MNIST classification task with a denoising autoencoder: 96.930000%.
@@ -119,6 +143,12 @@ The accuracy score for the MNIST classification task with a denoising autoencode
 ## MNIST: 1 Dimensional Convolutional Autoencoders
 
 So far we have used flattened or reshaped raw data. Such a 1 dimensional tensor of pixel intensities per image might not take into account useful spatial features that the 2 dimensional tensor might contain. To overcome this problem, we introduce the concept of convolution filters, considering first their 1 dimensional version and then their 2 dimensional version. 
+
+\begin{align*}
+&X \in \mathbb{R}^{N \times 28 \times 28} \\
+&E: \mathbb{R}^{N \times 28 \times 28} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 28 \times 28}
+\end{align*}
 
 The ideas behind convolution filters are closely related to handcrafted feature engineering: One can view the handcrafted features as simply the result of a predefined convolution filter, i.e., a convolution filter that has not been learnt based on the raw data at hand. 
 
@@ -182,6 +212,12 @@ The accuracy score for the MNIST classification task with a 1 dimensional convol
 
 Given our mortgage default example a potentially more useful deep learning architecture might be the Recurrent Neural Network (RNN), specifically their state of the art variant the Long Short Term Memory (LSTM) network. The goal is to explicitly take into account the sequential nature of the raw data.
 
+\begin{align*}
+&X \in \mathbb{R}^{N \times 28 \times 28} \\
+&E: \mathbb{R}^{N \times 28 \times 28} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 28 \times 28}
+\end{align*}
+
 The gradients in a RNN depend on the parameter matrices defined for the model. Simply put these parameter matrices can end up being multiplied many times over and hence cause two major problems for learning: Exploding and vanishing gradients. If the spectral radius of the parameter matrices, i.e., the maximum absolute value of the eigenvalues of a matrix, is more than 1 then gradients can become large enough, i.e., explode in value, such that learning diverges and similarly if the spectral radius is less than 1 then gradients can become small, i.e., vanish in value, such that the next best transition for the parameters cannot be reliably calculated. Appropriate calculation of the gradient is important for estimating the optimal set of parameters that define a machine learning method and the LSTM network overcomes these problems in a vanilla RNN. We now define the LSTM network for 1 time step, i.e., 1 memory cell.
 
 We calculate the value of the input gate, the value of the memory cell state at time period $t$ where $f(x)$ is some activation function and the value of the forget gate:
@@ -236,6 +272,12 @@ The accuracy score for the MNIST classification task with a sequence to sequence
 ## MNIST: Variational Autoencoders
 
 We now combine Bayesian inference with deep learning by using variational inference to train a vanilla autoencoder. This moves us towards generative modelling which can have further use cases in semi-supervised learning. The other benefit of training using Bayesian inference is that we can be more robust to higher capacity deep learners, i.e., avoid overfitting. 
+
+\begin{align*}
+&X \in \mathbb{R}^{N \times 784} \\
+&E: \mathbb{R}^{N \times 784} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 784}
+\end{align*}
 
 * Assume $X$ is our raw data while $Z$ is our learnt representation. 
 * We have a prior belief on our learnt representation: 
@@ -304,6 +346,12 @@ The accuracy score for the MNIST classification task with a variational autoenco
 ## MNIST: 2 Dimensional Convolutional Autoencoders
 
 For 2 dimensional convolution filters the idea is similar as for the 1 dimensional convolution filters. We will stick to our previously mentioned banking example to illustrate this point.
+
+\begin{align*}
+&X \in \mathbb{R}^{N \times 28 \times 28} \\
+&E: \mathbb{R}^{N \times 28 \times 28} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 28 \times 28}
+\end{align*}
 
 \begin{align*}
 x = 
@@ -388,6 +436,12 @@ The AUROC score for the insurance classification task with handcrafted features 
 
 In this case we use vanilla autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.
 
+\begin{align*}
+&X \in \mathbb{R}^{N \times 12} \\
+&E: \mathbb{R}^{N \times 12} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 12}
+\end{align*}
+
 ### Results
 
 The AUROC score for the insurance classification task with an autoencoder: 93.932247%.
@@ -395,6 +449,12 @@ The AUROC score for the insurance classification task with an autoencoder: 93.93
 ## Insurance: Denoising Autoencoders
 
 In this case we use denoising autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.
+
+\begin{align*}
+&X \in \mathbb{R}^{N \times 12} \\
+&E: \mathbb{R}^{N \times 12} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 12}
+\end{align*}
 
 ### Results
 
@@ -404,6 +464,12 @@ The AUROC score for the insurance classification task with a denoising autoencod
 
 In this case we use sequence to sequence autoencoders, taking into account the time series nature, i.e., sequential nature, of the raw transactions data, to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.
 
+\begin{align*}
+&X \in \mathbb{R}^{N \times 4 \times 3} \\
+&E: \mathbb{R}^{N \times 4 \times 3} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 4 \times 3}
+\end{align*}
+
 ### Results
 
 The AUROC score for the insurance classification task with a sequence to sequence autoencoder: 91.418310%.
@@ -411,6 +477,12 @@ The AUROC score for the insurance classification task with a sequence to sequenc
 ## Insurance: 1 Dimensional Convolutional Autoencoders
 
 In this case we use 1 dimensional convolutional autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.
+
+\begin{align*}
+&X \in \mathbb{R}^{N \times 4 \times 3} \\
+&E: \mathbb{R}^{N \times 4 \times 3} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 4 \times 3}
+\end{align*}
 
 ### Results
 
@@ -420,6 +492,12 @@ The AUROC score for the insurance classification task with a 1 dimensional convo
 
 In this case we use 2 dimensional convolutional autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.
 
+\begin{align*}
+&X \in \mathbb{R}^{N \times 4 \times 3} \\
+&E: \mathbb{R}^{N \times 4 \times 3} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 4 \times 3}
+\end{align*}
+
 ### Results
 
 The AUROC score for the insurance classification task with a 2 dimensional convolutional autoencoder: 92.645798%.
@@ -428,9 +506,21 @@ The AUROC score for the insurance classification task with a 2 dimensional convo
 
 In this case we use variational autoencoders to learn a good representation of the raw data such that we can obtain an uplift, primarily in terms of AUROC, for the supervised learning task.
 
+\begin{align*}
+&X \in \mathbb{R}^{N \times 12} \\
+&E: \mathbb{R}^{N \times 12} \rightarrow \mathbb{R}^{N \times K} \\
+&D: \mathbb{R}^{N \times K} \rightarrow \mathbb{R}^{N \times 12}
+\end{align*}
+
 ### Results
 
 The AUROC score for the insurance classification task with a variational autoencoder: 90.871569%.
+
+## Conclusion
+
+We have shown how to use deep learning and Bayesian inference to learn a good representation of raw data $X$, i.e., 1 or 2 or perhaps more dimensional tensors per unit of analysis, that can then perhaps be used for supervised learning tasks in the domain of computer vision and insurance. This moves us away from manual handcrafted feature engineering towards automatic feature engineering, i.e., representation learning. This does introduce architecture engineering however that can be automated as well perhaps by the use of genetic algorithms or reinforcement learning - a topic for another paper perhaps.
+
+Finally, I would like to emphasize that the same code used for solving the computer vision task was used to solve the insurance task: In both tasks automatic feature engineering via deep learning had the best performance despite the fact that we were not explicitly looking for the best state of the art architecture possible.
 
 ## References
 
