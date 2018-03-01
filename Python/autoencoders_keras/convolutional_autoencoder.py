@@ -35,80 +35,71 @@ class ConvolutionalAutoencoder(BaseEstimator,
             setattr(self, arg, val)
         
         loss_history = LossHistory()
-        self.callbacks_list = [loss_history]
         
+        early_stop = keras.callbacks.EarlyStopping(monitor="val_loss",
+                                                   patience=10)
+        
+        reduce_learn_rate = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
+                                                              factor=0.1,
+                                                              patience=20)
+        
+        self.callbacks_list = [loss_history, early_stop, reduce_learn_rate]
+
         for i in range(self.encoder_layers):
             if i == 0:
-                with tensorflow.device("/gpu:0"):
-                    self.input_data = Input(shape=self.input_shape)
-                    self.encoded = BatchNormalization()(self.input_data)
-                    self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                    self.encoded = Dropout(rate=0.5)(self.encoded)
+                self.input_data = Input(shape=self.input_shape)
+                self.encoded = BatchNormalization()(self.input_data)
+                self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
+                self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
-                with tensorflow.device("/gpu:0"):
-                    self.encoded = BatchNormalization()(self.encoded)
-                    self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                    self.encoded = Dropout(rate=0.5)(self.encoded)
+                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
+                self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
-                with tensorflow.device("/gpu:0"):
-                    self.encoded = BatchNormalization()(self.encoded)
-                    self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-                    self.encoded = Dropout(rate=0.5)(self.encoded)
+                self.encoded = BatchNormalization()(self.encoded)
+                self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
 
-        with tensorflow.device("/gpu:0"):
-            self.encoded = keras.layers.MaxPooling1D(strides=self.pool_size, padding="valid")(self.encoded)
-            self.encoded = BatchNormalization()(self.encoded)
-            self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
-            self.decoded = keras.layers.UpSampling1D(size=self.pool_size)(self.encoded)
+        self.encoded = keras.layers.MaxPooling1D(strides=self.pool_size, padding="valid")(self.encoded)
+        self.encoded = BatchNormalization()(self.encoded)
+        self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
+        self.decoded = keras.layers.UpSampling1D(size=self.pool_size)(self.encoded)
 
         for i in range(self.decoder_layers):
-            if i == 0:
-                with tensorflow.device("/gpu:0"):
-                    self.decoded = BatchNormalization()(self.decoded)
-                    self.decoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                    self.decoded = Dropout(rate=0.5)(self.decoded)
-            elif i > 0 and i < self.decoder_layers - 1:
-                with tensorflow.device("/gpu:0"):
-                    self.decoded = BatchNormalization()(self.decoded)
-                    self.decoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                    self.decoded = Dropout(rate=0.5)(self.decoded)
-            elif i == self.decoder_layers - 1:
-                with tensorflow.device("/gpu:0"):
-                    self.decoded = BatchNormalization()(self.decoded)
-                    self.decoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
-                    self.decoded = Dropout(rate=0.5)(self.decoded)
+            if i < self.decoder_layers - 1:
+                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
+                self.decoded = Dropout(rate=0.5)(self.decoded)
+            else:
+                self.decoded = BatchNormalization()(self.decoded)
+                self.decoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.decoded)
 
-        with tensorflow.device("/gpu:0"):
-            # 3D tensor with shape: (batch_size, new_steps, filters).
-            # Remember think of this as a 2D-Lattice per observation.
-            # Rows represent time and columns represent some quantities of interest that evolve over time.
-            self.decoded = BatchNormalization()(self.decoded)
-            self.decoded = keras.layers.Conv1D(filters=self.input_shape[1], kernel_size=self.kernel_size, strides=self.strides, activation="sigmoid", padding="same")(self.decoded)
+        # 3D tensor with shape: (batch_size, new_steps, filters).
+        # Remember think of this as a 2D-Lattice per observation.
+        # Rows represent time and columns represent some quantities of interest that evolve over time.
+        self.decoded = BatchNormalization()(self.decoded)
+        self.decoded = keras.layers.Conv1D(filters=self.input_shape[1], kernel_size=self.kernel_size, strides=self.strides, activation="sigmoid", padding="same")(self.decoded)
 
-            self.autoencoder = Model(self.input_data, self.decoded)
-            self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
-                                     loss="mean_squared_error")
+        self.autoencoder = Model(self.input_data, self.decoded)
+        self.autoencoder.compile(optimizer=keras.optimizers.Adam(),
+                                 loss="mean_squared_error")
             
     def fit(self,
             X,
             y=None):
-        with tensorflow.device("/gpu:0"):
-            keras.backend.get_session().run(tensorflow.global_variables_initializer())
-            self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
-                                 validation_split=0.05,
-                                 epochs=self.n_epoch,
-                                 batch_size=self.batch_size,
-                                 shuffle=True,
-                                 callbacks=self.callbacks_list, 
-                                 verbose=1)
+        self.autoencoder.fit(X if self.denoising is None else X + self.denoising, X,
+                             validation_split=0.3,
+                             epochs=self.n_epoch,
+                             batch_size=self.batch_size,
+                             shuffle=True,
+                             callbacks=self.callbacks_list, 
+                             verbose=1)
 
-            self.encoder = Model(self.input_data, self.encoded)
+        self.encoded_for_transformer = keras.layers.Flatten()(self.encoded)
         
+        self.encoder = Model(self.input_data, self.encoded_for_transformer)
+
         return self
     
     def transform(self,
                   X):
-        with tensorflow.device("/gpu:0"):
-            out = np.reshape(self.encoder.predict(X), (X.shape[0], self.filters * int(X.shape[1] / self.pool_size)))
-            
-        return out
+        return self.encoder.predict(X)
