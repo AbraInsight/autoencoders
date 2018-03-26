@@ -1,4 +1,4 @@
-License
+License: apache-2.0
 
 Copyright 2018 Hamaad Musharaf Shah
 
