@@ -41,13 +41,13 @@ class ConvolutionalAutoencoder(BaseEstimator,
         loss_history = LossHistory()
         
         early_stop = keras.callbacks.EarlyStopping(monitor="val_loss",
-                                                   patience=10)
+                                                   patience=5)
         
         reduce_learn_rate = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
                                                               factor=0.1,
-                                                              patience=20)
+                                                              patience=5)
         
-        self.callbacks_list = [loss_history, early_stop, reduce_learn_rate]
+        self.callbacks_list = [loss_history, reduce_learn_rate]
 
         for i in range(self.encoder_layers):
             if i == 0:
@@ -57,11 +57,11 @@ class ConvolutionalAutoencoder(BaseEstimator,
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i > 0 and i < self.encoder_layers - 1:
                 self.encoded = BatchNormalization()(self.encoded)
-                self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
+                self.encoded = keras.layers.Conv1D(filters=self.filters, dilation_rate=i, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
                 self.encoded = Dropout(rate=0.5)(self.encoded)
             elif i == self.encoder_layers - 1:
                 self.encoded = BatchNormalization()(self.encoded)
-                self.encoded = keras.layers.Conv1D(filters=self.filters, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
+                self.encoded = keras.layers.Conv1D(filters=self.filters, dilation_rate=i, kernel_size=self.kernel_size, strides=self.strides, activation="elu", padding="same")(self.encoded)
 
         self.encoded = keras.layers.MaxPooling1D(strides=self.pool_size, padding="valid")(self.encoded)
         self.encoded = BatchNormalization()(self.encoded)
